@@ -16,4 +16,4 @@ window.FIREBASE_CONFIG = {
  * https://webservice.recruit.co.jp/register/ でメール登録すると無料で発行されます。
  * null のままだと周辺店は OpenStreetMap のデータだけになります（日本では登録が少なめ）。
  * このキーはページに埋め込まれるため公開されます。利用規約上それで問題ありません。 */
-window.HOTPEPPER_KEY = null;
+window.HOTPEPPER_KEY = "fa926e77c5ff30a7";
