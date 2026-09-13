@@ -54,6 +54,12 @@ body.has-bar .app{padding-bottom:140px}
 .d-head .d-name{flex:1;min-width:0;margin-top:0}
 .share{font-size:13px;border:1px solid var(--indigo);color:var(--indigo);background:transparent;border-radius:999px;padding:3px 10px;cursor:pointer;font-family:inherit}
 .legend{margin-top:6px}
+.near-sec{margin-top:28px}
+.near-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
+.near-head h3{margin:0;font:700 19px var(--serif)}
+.near-act{flex:none}
+.card.near .thumb{background:var(--shu-soft);color:var(--shu)}
+.card.near .stamp.none{border-style:dotted}
 #recent-box{margin-top:10px}
 #recent-box .hint{margin:0 0 6px}
 .tel{color:var(--indigo);text-decoration:none;font-weight:500}
@@ -386,7 +392,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-06435ac"></script>
+<script src="firebase-config.js?v=after-e32ee86"></script>
 <script>
 (function(){
 'use strict';
@@ -448,7 +454,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-13 12:00 UTC (after-06435ac)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-13 12:08 UTC (after-e32ee86)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -1567,6 +1573,7 @@ function locateMe(then){
   toast('現在地を取得しています');
   navigator.geolocation.getCurrentPosition(function(p){
     search.pos={lat:p.coords.latitude,lng:p.coords.longitude};
+    loadNearby(search.pos.lat,search.pos.lng);
     if(then){if(currentView()==='search')renderSearch();then();return}
     search.sort='gps';renderSearch();toast('現在地から近い順に並べました');
   },function(){
@@ -1586,6 +1593,7 @@ function autoLocateIfGranted(){
       search.pos={lat:p.coords.latitude,lng:p.coords.longitude};
       if(currentView()==='search')renderSearch();
       var mb=$('#map-box');if(mb&&mb._lmap)mb._lmap.setView([search.pos.lat,search.pos.lng],15);
+      loadNearby(search.pos.lat,search.pos.lng);
     },function(){},{enableHighAccuracy:false,timeout:8000,maximumAge:120000});
   })['catch'](function(){});
 }
@@ -1833,13 +1841,17 @@ function renderSearch(){
     e.appendChild(el('p',null,'まだ店がありません。誰かが採点すると、ここに並びます。'));
     var b1=el('button','cta','採点する');b1.type='button';b1.addEventListener('click',function(){showView('rate')});e.appendChild(b1);
     var b2=el('button','link','デモデータで見え方を確かめる');b2.type='button';b2.addEventListener('click',seedDemo);e.appendChild(b2);
-    box.appendChild(e);return;
+    box.appendChild(e);
+    renderNearbySection(box,groups,q);
+    return;
   }
   if(!list.length){
     var e2=el('div','empty');
     e2.appendChild(el('p',null,search.want?'行きたいリストは空です。店の ☆ をタップすると入ります。':'条件に合う店がありません。'));
     if(filtersActive()){var cf=el('button','link','絞り込みをすべて解除');cf.type='button';cf.addEventListener('click',clearFilters);e2.appendChild(cf)}
-    box.appendChild(e2);return;
+    box.appendChild(e2);
+    if(!search.want)renderNearbySection(box,groups,q);
+    return;
   }
   list.forEach(function(g){
     var card=el('article','card');card.setAttribute('role','button');card.tabIndex=0;
@@ -1865,6 +1877,7 @@ function renderSearch(){
     card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});
     box.appendChild(card);
   });
+  if(!search.want)renderNearbySection(box,groups,q);
 }
 
 function nearbyGroups(g){
@@ -1885,6 +1898,10 @@ function renderDetail(){
   var g=null;
   allGroups(search.scene).forEach(function(x){if(x.key===detailKey)g=x});
   var box=$('#detail');box.textContent='';
+  if(!g&&/^near:/.test(detailKey||'')){
+    var pl=findPlace(detailKey);
+    if(pl){renderPlaceDetail(box,pl);return}
+  }
   if(!g){
     var ne=el('div','empty');
     if(booting){ne.appendChild(el('p',null,'店の情報を読み込んでいます…'));box.appendChild(ne);return}
@@ -2582,8 +2599,9 @@ function fetchHotpepperNearby(lat,lng,radius){
     if(r&&r.error)throw new Error('API '+((r.error[0]&&(r.error[0].code+' '+r.error[0].message))||'error'));
     var out=shops.map(function(s){
       return{id:'hp/'+s.id,src:'hp',name:s.name,lat:+s.lat,lng:+s.lng,
-        tags:{genre:(s.genre&&s.genre.name)||'',budget:(s.budget&&s.budget.name)||'',station:s.station_name||'',open:s.open||'',close:s.close||'',
-          url:(s.urls&&s.urls.pc)||'',photo:(s.photo&&s.photo.mobile&&s.photo.mobile.s)||'',addr:s.address||'',catch_:s['catch']||''}};
+        tags:{genre:(s.genre&&s.genre.name)||'',genreCatch:(s.genre&&s.genre['catch'])||'',budget:(s.budget&&s.budget.name)||'',station:s.station_name||'',open:s.open||'',close:s.close||'',
+          url:(s.urls&&s.urls.pc)||'',photo:(s.photo&&s.photo.mobile&&s.photo.mobile.s)||'',photoL:(s.photo&&s.photo.pc&&s.photo.pc.l)||(s.photo&&s.photo.mobile&&s.photo.mobile.l)||'',
+          addr:s.address||'',catch_:s['catch']||'',access:s.mobile_access||s.access||'',card:s.card||'',smoking:s.non_smoking||'',privateRoom:s.private_room||'',capacity:s.capacity||''}};
     }).filter(function(o){return o.lat&&o.lng&&o.name});
     osmCache[key]=out;
     return out;
@@ -2603,6 +2621,133 @@ function fetchNearbyPlaces(lat,lng,radius){
     return out;
   });
 }
+/* ============ 周辺の店（未評価）を一覧にも出す ============ */
+var nearby={key:'',list:[],loading:false,error:''};
+function nearbyKey(lat,lng){return lat.toFixed(3)+','+lng.toFixed(3)}
+function loadNearby(lat,lng,force){
+  var k=nearbyKey(lat,lng);
+  if(!force&&(nearby.key===k||nearby.loading))return Promise.resolve(nearby.list);
+  nearby.loading=true;nearby.error='';nearby.key=k;
+  if(currentView()==='search')renderSearch();
+  return fetchNearbyPlaces(lat,lng,1000).then(function(list){
+    nearby.list=list;nearby.loading=false;
+    if(currentView()==='search')renderSearch();
+    return list;
+  })['catch'](function(){nearby.loading=false;nearby.error='取得できませんでした';if(currentView()==='search')renderSearch();return[]});
+}
+function placeDist(o){if(!search.pos)return null;var dy=(o.lat-search.pos.lat)*110574,dx=(o.lng-search.pos.lng)*111320*Math.cos(search.pos.lat*Math.PI/180);return Math.sqrt(dx*dx+dy*dy)}
+function placeGenre(o){return o.src==='hp'?(o.tags.genre||''):cuisineJa(o.tags||{})}
+function placeKey(o){return 'near:'+o.id}
+function findPlace(key){var id=String(key||'').replace(/^near:/,'');for(var i=0;i<nearby.list.length;i++)if(nearby.list[i].id===id)return nearby.list[i];return null}
+/* 登録済みの店と同じ位置・同名のものは除く（一覧に二重に出さない） */
+function unregisteredPlaces(groups){
+  var have={};
+  groups.forEach(function(g){var c=coordsOf(g);if(c)have['p:'+c.lat.toFixed(4)+','+c.lng.toFixed(4)]=1;have['n:'+normKana(g.store)]=1});
+  return nearby.list.filter(function(o){return !have['p:'+o.lat.toFixed(4)+','+o.lng.toFixed(4)]&&!have['n:'+normKana(o.name)]});
+}
+function placeMatches(o,q){
+  if(!q)return true;
+  return normKana([o.name,placeGenre(o),o.tags.station||'',o.tags.addr||o.tags['addr:full']||'',o.tags.genreCatch||''].join(' ')).indexOf(q)>=0;
+}
+function placeGenreMatch(o,gn){
+  if(!gn)return true;
+  var pg=placeGenre(o);if(!pg)return false;
+  var head=gn.split('・')[0];
+  return pg.indexOf(head)>=0||gn.indexOf(pg.slice(0,2))>=0||(gn==='焼鳥・串'&&/焼鳥|串/.test(pg))||(gn==='寿司・海鮮'&&/寿司|海鮮|魚/.test(pg))||(gn==='定食・食堂'&&/定食|食堂|和食/.test(pg))||(gn==='イタリアン・フレンチ'&&/イタリア|フレンチ|洋食|ダイニング/.test(pg));
+}
+function placeCard(o){
+  var t=o.tags||{},card=el('article','card near');card.setAttribute('role','button');card.tabIndex=0;
+  var th=el('div','thumb');th.textContent=o.name.charAt(0);
+  if(o.src==='hp'&&t.photo){var img=el('img');img.alt='';img.loading='lazy';img.src=t.photo;th.textContent='';th.appendChild(img)}
+  card.appendChild(th);
+  var body=el('div','card-body');
+  var top=el('div','card-top');top.appendChild(el('h3',null,o.name));
+  var side=el('div','card-side'),sw=el('div','stampwrap');sw.appendChild(el('div','stamp sm none','—'));sw.appendChild(el('small','n','未評価'));side.appendChild(sw);top.appendChild(side);
+  body.appendChild(top);
+  var d=placeDist(o);
+  var meta=[placeGenre(o),t.budget||'',t.station?t.station+'駅':'',d!=null?'現在地から '+fmtDist(d):''].filter(Boolean).join('　');
+  if(meta)body.appendChild(el('p','meta',meta));
+  if(o.src==='hp'&&t.open)body.appendChild(el('p','line muted',t.open));
+  body.appendChild(el('p','stats',(o.src==='hp'?'ホットペッパー掲載店':'OpenStreetMap 登録店')+'　最初の採点を待っています'));
+  card.appendChild(body);
+  var open=function(){detailKey=placeKey(o);showView('detail')};
+  card.addEventListener('click',open);
+  card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}});
+  return card;
+}
+function renderNearbySection(box,groups,q){
+  var sec=el('section','near-sec');
+  var head=el('div','near-head');
+  head.appendChild(el('h3',null,'周辺の店（未評価）'));
+  var act=el('div','near-act');
+  if(!search.pos){
+    var lb=el('button','loc-btn','現在地から探す');lb.type='button';lb.addEventListener('click',function(){locateMe(function(){loadNearby(search.pos.lat,search.pos.lng)})});act.appendChild(lb);
+  }else{
+    var rb=el('button','loc-btn',nearby.loading?'取得中…':'再取得');rb.type='button';rb.disabled=nearby.loading;rb.addEventListener('click',function(){loadNearby(search.pos.lat,search.pos.lng,true)});act.appendChild(rb);
+  }
+  head.appendChild(act);sec.appendChild(head);
+  if(!search.pos){sec.appendChild(el('p','hint','現在地の周りにある未評価の店（ホットペッパー・OpenStreetMap）を一覧します。位置情報の許可が必要です。'));box.appendChild(sec);return}
+  if(nearby.loading&&!nearby.list.length){sec.appendChild(el('p','hint','周辺の店を取得しています…'));box.appendChild(sec);return}
+  if(nearby.error){sec.appendChild(el('p','warn',nearby.error+'。「再取得」を押してください'));box.appendChild(sec);return}
+  var list=unregisteredPlaces(groups).filter(function(o){return placeMatches(o,q)&&placeGenreMatch(o,search.genre)});
+  list.forEach(function(o){o._d=placeDist(o)});
+  list.sort(function(a,b){return(a._d==null?1e12:a._d)-(b._d==null?1e12:b._d)});
+  var n=list.length,show=Math.min(n,nearby.expanded?n:12);
+  sec.appendChild(el('p','hint','現在地から 1km・'+n+'軒（近い順）。'+(hasHotpepper()?'ホットペッパー掲載店と OpenStreetMap 登録店。':'OpenStreetMap 登録店（日本では少なめ）。')+'タップで店の情報と採点へ。'));
+  if(!n){sec.appendChild(el('p','hint','条件に合う周辺の店はありません。'));box.appendChild(sec);return}
+  for(var i=0;i<show;i++)sec.appendChild(placeCard(list[i]));
+  if(show<n){var more=el('button','cta ghost','残り '+(n-show)+'軒を表示');more.type='button';more.addEventListener('click',function(){nearby.expanded=true;renderSearch()});sec.appendChild(more)}
+  if(hasHotpepper()){var cr=el('p','hint');var a=el('a',null,'Powered by ホットペッパーグルメ Webサービス');a.href='https://webservice.recruit.co.jp/';a.target='_blank';a.rel='noopener';cr.appendChild(a);sec.appendChild(cr)}
+  box.appendChild(sec);
+}
+function renderPlaceDetail(box,o){
+  var t=o.tags||{},hp=o.src==='hp';
+  var hero=el('div','hero');
+  if(hp&&(t.photoL||t.photo)){var im=el('img');im.alt='';im.src=t.photoL||t.photo;hero.appendChild(im)}
+  else hero.appendChild(el('div','mono',o.name.charAt(0)));
+  box.appendChild(hero);
+  var dh=el('div','d-head');dh.appendChild(el('h2','d-name',o.name));box.appendChild(dh);
+  var d=placeDist(o);
+  var m1=[placeGenre(o),t.budget||'',t.station?t.station+'駅':'',d!=null?'現在地から '+fmtDist(d):''].filter(Boolean).join('　');
+  if(m1)box.appendChild(el('p','meta',m1));
+  var addr=t.addr||t['addr:full']||'';if(addr)box.appendChild(el('p','meta',addr));
+  if(t.access)box.appendChild(el('p','meta',t.access));
+  var cta=el('button','cta','この店を採点する');cta.type='button';cta.addEventListener('click',function(){rateOsmPlace(o)});cta.style.marginTop='14px';box.appendChild(cta);
+  var lk=el('div','d-links');
+  if(hp&&t.url){var hl=el('a',null,'ホットペッパーで見る');hl.href=t.url;hl.target='_blank';hl.rel='noopener';lk.appendChild(hl)}
+  var gm=el('a',null,'Googleマップ');gm.href=gmapAt(o.lat,o.lng,o.name);gm.target='_blank';gm.rel='noopener';lk.appendChild(gm);
+  var rt=el('a',null,'経路');rt.href=routeURL(o.lat,o.lng);rt.target='_blank';rt.rel='noopener';lk.appendChild(rt);
+  box.appendChild(lk);
+  if(hasLeaflet()){
+    var mh=el('div');box.appendChild(mh);
+    var wrap=el('div','lmap');wrap.style.height='200px';mh.appendChild(wrap);
+    var m=L.map(wrap,{zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(m);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'}).addTo(m);
+    L.marker([o.lat,o.lng],{icon:L.divIcon({className:'lpin-wrap',html:'<div class="lpin focus">・</div>',iconSize:[34,34],iconAnchor:[17,17]})}).addTo(m);
+    if(search.pos)L.circleMarker([search.pos.lat,search.pos.lng],{radius:8,color:'#fff',weight:2.5,fillColor:'#1a73e8',fillOpacity:1}).addTo(m);
+    m.setView([o.lat,o.lng],16);setTimeout(function(){m.invalidateSize()},50);
+  }
+  var sec=el('section','d-sec');sec.appendChild(el('h3',null,'店の情報（'+(hp?'ホットペッパー':'OpenStreetMap')+'）'));
+  var rows=[];
+  if(hp){
+    if(t.open)rows.push(['営業時間',t.open]);
+    if(t.close)rows.push(['定休日',t.close]);
+    if(t.budget)rows.push(['予算',t.budget]);
+    if(t.card)rows.push(['カード',t.card]);
+    if(t.smoking)rows.push(['禁煙・喫煙',t.smoking]);
+    if(t.privateRoom)rows.push(['個室',t.privateRoom]);
+    if(t.capacity)rows.push(['席数',String(t.capacity)]);
+    if(t.genreCatch)rows.push(['ジャンル',t.genreCatch]);
+  }else{
+    if(t.opening_hours)rows.push(['営業時間',t.opening_hours]);
+    if(t.phone)rows.push(['電話',t.phone]);
+    if(t.website)rows.push(['サイト',t.website]);
+  }
+  if(!rows.length)sec.appendChild(el('p','hint','詳しい情報はありません。'));
+  rows.forEach(function(r){var row=el('div','crow');row.appendChild(el('div',null,r[0]));var v=el('div');v.style.color='var(--ink)';v.style.textAlign='right';v.appendChild(r[0]==='電話'?telLink(r[1]):el('span',null,r[1]));row.appendChild(v);sec.appendChild(row)});
+  box.appendChild(sec);
+  box.appendChild(el('p','hint','まだ誰も採点していない店です。情報は'+(hp?'ホットペッパーグルメ':'OpenStreetMap')+'のもので、営業状況は変わっている場合があります。採点して保存すると、この店が登録され点数がつきます。'));
+}
 function renderLeafletMap(host,groups,focusKey,h){
   var pts=pointsFrom(groups),m=host._lmap;
   if(!m){
@@ -2616,7 +2761,7 @@ function renderLeafletMap(host,groups,focusKey,h){
     });
     bar.appendChild(locB);
     var osmB=el('button','loc-btn','周辺の飲食店を表示');osmB.type='button';
-    osmB.addEventListener('click',function(){loadOsmAround()});
+    osmB.addEventListener('click',function(){var c=search.pos?L.latLng(search.pos.lat,search.pos.lng):m.getCenter();host._note.textContent='周辺の店を取得中…';loadNearby(c.lat,c.lng,true).then(function(){drawNearby()})});
     bar.appendChild(osmB);
     var note=el('span','hint lmap-note','');bar.appendChild(note);
     host.appendChild(bar);
@@ -2631,22 +2776,21 @@ function renderLeafletMap(host,groups,focusKey,h){
     if(!search.pos)return;
     L.circleMarker([search.pos.lat,search.pos.lng],{radius:8,color:'#fff',weight:2.5,fillColor:'#1a73e8',fillOpacity:1}).addTo(host._me).bindPopup('現在地');
   }
-  function loadOsmAround(){
-    var c=m.getCenter();
-    host._note.textContent='周辺の店を取得中…';
-    fetchNearbyPlaces(c.lat,c.lng,1000).then(function(list){
-      host._osm.clearLayers();
-      var have={};(host._pts||[]).forEach(function(p){have[p.lat.toFixed(4)+','+p.lng.toFixed(4)]=1});
-      var n=0,nhp=0;
-      list.forEach(function(o){
-        if(have[o.lat.toFixed(4)+','+o.lng.toFixed(4)])return;
-        n++;if(o.src==='hp')nhp++;
-        L.marker([o.lat,o.lng],{icon:osmIcon(o.src),zIndexOffset:-100}).addTo(host._osm).bindPopup(function(){return lpopupOsm(o)},{maxWidth:260});
-      });
-      var src=hasHotpepper()?'オレンジ = ホットペッパー '+nhp+'軒、黄 = OpenStreetMap '+(n-nhp)+'軒':'黄の点 = OpenStreetMap。日本の登録は少なめです';
-      host._note.textContent=n?'地図の中心から 1km の飲食店 '+n+'軒（'+src+'。青 = 登録済みの店）':'この範囲には登録された飲食店が見つかりません'+(hasHotpepper()?'':'（OpenStreetMap の登録は少なめです）');
-      if(hasHotpepper()){host._note.appendChild(document.createTextNode('　'));var cr=el('a',null,'Powered by ホットペッパーグルメ Webサービス');cr.href='https://webservice.recruit.co.jp/';cr.target='_blank';cr.rel='noopener';host._note.appendChild(cr)}
-    })['catch'](function(){host._note.textContent='';toast('周辺の店を取得できませんでした。しばらくして再度お試しください',3600)});
+  /* 周辺の店（nearby.list）を地図に描く。一覧と同じデータを使う */
+  function drawNearby(){
+    host._osm.clearLayers();
+    if(nearby.error){host._note.textContent='';return}
+    var have={};(host._pts||[]).forEach(function(p){have[p.lat.toFixed(4)+','+p.lng.toFixed(4)]=1});
+    var n=0,nhp=0;
+    nearby.list.forEach(function(o){
+      if(have[o.lat.toFixed(4)+','+o.lng.toFixed(4)])return;
+      n++;if(o.src==='hp')nhp++;
+      L.marker([o.lat,o.lng],{icon:osmIcon(o.src),zIndexOffset:-100}).addTo(host._osm).bindPopup(function(){return lpopupOsm(o)},{maxWidth:260});
+    });
+    if(!nearby.key){host._note.textContent='';return}
+    var src=hasHotpepper()?'オレンジ = ホットペッパー '+nhp+'軒、黄 = OpenStreetMap '+(n-nhp)+'軒':'黄の点 = OpenStreetMap。日本の登録は少なめです';
+    host._note.textContent=n?'周辺 1km の飲食店 '+n+'軒（'+src+'。青 = 登録済みの店）':'この範囲には登録された飲食店が見つかりません'+(hasHotpepper()?'':'（OpenStreetMap の登録は少なめです）');
+    if(hasHotpepper()&&n){host._note.appendChild(document.createTextNode('　'));var cr=el('a',null,'Powered by ホットペッパーグルメ Webサービス');cr.href='https://webservice.recruit.co.jp/';cr.target='_blank';cr.rel='noopener';host._note.appendChild(cr)}
   }
   host._layer.clearLayers();host._pts=pts;
   var bounds=[];
@@ -2655,6 +2799,7 @@ function renderLeafletMap(host,groups,focusKey,h){
     bounds.push([p.lat,p.lng]);
   });
   paintMe();
+  drawNearby();
   if(host._n!==pts.length||focusKey){
     host._n=pts.length;
     var f=null;pts.forEach(function(p){if(p.key===focusKey)f=p});
