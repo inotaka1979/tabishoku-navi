@@ -2394,14 +2394,22 @@ function fetchHotpepperNearby(lat,lng,radius){
   var range=radius<=300?1:radius<=500?2:radius<=1000?3:radius<=2000?4:5;
   var key='hp:'+lat.toFixed(3)+','+lng.toFixed(3)+','+range;
   if(osmCache[key])return Promise.resolve(osmCache[key]);
-  var base='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100';
-  /* まず通常の JSON 取得（CORS）。ブラウザに拒否されたら JSONP に切り替える */
+  var qs='key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100';
+  var base='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?'+qs;
+  var proxy=(typeof window.HOTPEPPER_PROXY==='string'&&window.HOTPEPPER_PROXY)?window.HOTPEPPER_PROXY.replace(/\/+$/,''):'';
+  /* 優先順: 中継 Worker（確実） → 直接 JSON（CORS） → JSONP */
+  function viaProxy(){
+    if(!proxy)return Promise.reject(new Error('proxy未設定'));
+    return fetch(proxy+'/hotpepper?'+qs,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json()});
+  }
   function viaFetch(){
     return fetch(base+'&format=json',{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json()});
   }
   function viaJsonp(){return jsonp(base+'&format=jsonp',8000)}
-  return viaFetch()['catch'](function(e1){
-    return viaJsonp()['catch'](function(e2){throw new Error('json:'+(e1&&e1.message||'?')+' / jsonp:'+(e2&&e2.message||'?'))});
+  return viaProxy()['catch'](function(e0){
+    return viaFetch()['catch'](function(e1){
+      return viaJsonp()['catch'](function(e2){throw new Error('proxy:'+(e0&&e0.message||'?')+' / json:'+(e1&&e1.message||'?')+' / jsonp:'+(e2&&e2.message||'?'))});
+    });
   }).then(function(j){
     var r=j&&j.results,shops=(r&&r.shop)||[];
     if(r&&r.error)throw new Error('API '+((r.error[0]&&(r.error[0].code+' '+r.error[0].message))||'error'));

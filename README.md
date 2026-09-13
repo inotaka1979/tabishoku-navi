@@ -71,6 +71,14 @@ OpenStreetMap の飲食店データは日本では登録が少ないため、リ
 2. 届いたメールの **API キー**（英数字 16 桁）をコピー
 3. `firebase-config.js` の `window.HOTPEPPER_KEY = null;` を `window.HOTPEPPER_KEY = "コピーしたキー";` に変えて push
 
+4. ブラウザから直接 API を呼べない（CORS 非対応）ため、中継用の Cloudflare Worker を 1 つ作ります（無料枠）。
+   - https://dash.cloudflare.com/ → **Workers & Pages** → **Create** → **Start with Hello World!**
+   - 名前を `tabishoku-proxy` にして **Deploy**
+   - **Edit code** を開き、`cloudflare-worker/worker.js` の中身を全部貼り付けて **Deploy**
+   - 表示される URL（`https://tabishoku-proxy.xxxx.workers.dev`）を `firebase-config.js` の
+     `window.HOTPEPPER_PROXY` に設定して push
+   - Worker は同じ位置の結果を 10 分キャッシュし、`inotaka1979.github.io` からの呼び出しだけ許可します
+
 以後、地図の「周辺の飲食店を表示」でホットペッパーの店が灰色の点に加わり、
 タップすると写真・ジャンル・予算・営業時間と「ホットペッパー」リンクが出ます。
 利用規約により、周辺店を表示した画面には「Powered by ホットペッパーグルメ Webサービス」の
