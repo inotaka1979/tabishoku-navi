@@ -1615,10 +1615,19 @@ function exportBackup(){
     me:{rid:ME.rid,name:ME.name||'',home:ME.home||'',calib:ME.calib||{}},
     ratings:mine.map(function(r){var o=toBody(r);o.id=r.id;return o}),
     wants:loadWants(),infos:loadLocalInfos()};
-  var text=JSON.stringify(data);
+  var text=JSON.stringify(data),fname='tabishoku-navi-'+ymd(Date.now())+'.json';
+  /* claude.ai のビューア内では通常のダウンロードが使えないため、downloads 機能経由で保存する */
+  if(window.claude&&typeof window.claude.use==='function'){
+    window.claude.use('downloads').then(function(dl){
+      if(!dl||typeof dl.save!=='function'){toast('この環境ではファイルを保存できません。GitHub Pages 版で書き出してください',4200);return}
+      return dl.save({filename:fname,data:text}).then(function(){toast('採点 '+data.ratings.length+'件を書き出しました',3600)})
+        ['catch'](function(e){if(e&&e.code==='cancelled')return;toast('保存できませんでした'+(e&&e.message?'（'+e.message+'）':''),3600)});
+    });
+    return;
+  }
   try{
     var blob=new Blob([text],{type:'application/json'});
-    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tabishoku-navi-'+ymd(Date.now())+'.json';
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;
     document.body.appendChild(a);a.click();
     setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);
     toast('採点 '+data.ratings.length+'件を書き出しました。ファイル App などに保存してください',4200);
