@@ -386,7 +386,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js"></script>
+<script src="firebase-config.js?v=after-e78657a"></script>
 <script>
 (function(){
 'use strict';
@@ -448,6 +448,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
+var APP_BUILD='2026-09-13 11:57 UTC (after-e78657a)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2718,6 +2719,9 @@ function renderMe(){
     :'採点はこの端末にだけ保存されます。共有版として公開したページで開くと、全員の採点が集まります。'));
   s.appendChild(el('div','muted','いま：'+Object.keys(ppl).length+'人・'+all.length+'件の採点／あなた '+mine.length+'件'));
   s.appendChild(el('div','muted',n>=MIN_COMMON?'味覚キャリブレーション '+n+'店：あなた向けの予測点が出ます':'味覚キャリブレーション '+n+'店：あと'+(MIN_COMMON-n)+'店でおすすめが効き始めます'));
+  var vr=el('div','muted','アプリのバージョン：'+APP_BUILD+'　');
+  var rl=el('button','link','最新に更新');rl.type='button';rl.addEventListener('click',function(){try{location.reload()}catch(e){}});vr.appendChild(rl);
+  s.appendChild(vr);
   box.appendChild(s);
 
   var d=$('#me-data');d.textContent='';
