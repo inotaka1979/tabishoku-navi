@@ -386,7 +386,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-e78657a"></script>
+<script src="firebase-config.js?v=after-06435ac"></script>
 <script>
 (function(){
 'use strict';
@@ -448,7 +448,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-13 11:57 UTC (after-e78657a)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-13 12:00 UTC (after-06435ac)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -1507,7 +1507,8 @@ function renderStoreSuggest(){
 }
 
 /* ============ 表：探す ============ */
-var search={q:'',scene:'一人出張',genre:null,sort:'score',nogate:false,scored:false,unrated:false,map:false,want:false,pos:null,loc:{pref:null,area:null,station:null}};
+var search={q:'',scene:'一人出張',genre:null,sort:'score',nogate:false,scored:false,unrated:false,map:true,want:false,pos:null,loc:{pref:null,area:null,station:null}};
+var SEARCH_PREFS_VER=2; /* v2: 地図を既定で表示。旧設定の map:false は引き継がない */
 var detailKey=null;
 function buildSearch(){
   SCENE_ORDER.forEach(function(n){var b=chip(n);b.dataset.scene=n;b.addEventListener('click',function(){search.scene=n;renderSearch()});$('#f-scene').appendChild(b)});
@@ -1573,6 +1574,21 @@ function locateMe(then){
     if(search.sort==='gps'){search.sort='score';renderSearch()}
   },{enableHighAccuracy:false,timeout:8000,maximumAge:60000});
 }
+/* 位置情報が既に許可済みなら、確認なしで現在地を取って地図を寄せる（初回は「現在地」ボタンで許可を取る） */
+var _autoLocated=false;
+function autoLocateIfGranted(){
+  if(_autoLocated||search.pos||!navigator.geolocation)return;
+  _autoLocated=true;
+  if(!(navigator.permissions&&navigator.permissions.query))return;
+  navigator.permissions.query({name:'geolocation'}).then(function(st){
+    if(st.state!=='granted')return;
+    navigator.geolocation.getCurrentPosition(function(p){
+      search.pos={lat:p.coords.latitude,lng:p.coords.longitude};
+      if(currentView()==='search')renderSearch();
+      var mb=$('#map-box');if(mb&&mb._lmap)mb._lmap.setView([search.pos.lat,search.pos.lng],15);
+    },function(){},{enableHighAccuracy:false,timeout:8000,maximumAge:120000});
+  })['catch'](function(){});
+}
 function shareStore(g){
   var url=location.href.split('#')[0]+'#s='+encodeURIComponent(g.key);
   var txt=g.store+(g.loc?'（'+g.loc+'）':'')+(g.show!=null?'　'+fmt1(g.show)+'点':'');
@@ -1584,7 +1600,7 @@ function setLoc(loc){search.loc=loc;renderSearch()}
 /* 絞り込み・シーンを端末に記憶し、次回開いたときに復元する */
 var SEARCH_KEY='atari:search';
 function saveSearchPrefs(){
-  try{localStorage.setItem(SEARCH_KEY,JSON.stringify({scene:search.scene,genre:search.genre,sort:search.sort==='gps'?'score':search.sort,nogate:search.nogate,scored:search.scored,unrated:search.unrated,want:search.want,map:search.map,loc:search.loc}))}catch(e){}
+  try{localStorage.setItem(SEARCH_KEY,JSON.stringify({v:SEARCH_PREFS_VER,scene:search.scene,genre:search.genre,sort:search.sort==='gps'?'score':search.sort,nogate:search.nogate,scored:search.scored,unrated:search.unrated,want:search.want,map:search.map,loc:search.loc}))}catch(e){}
 }
 function restoreSearchPrefs(){
   var v=null;try{v=JSON.parse(localStorage.getItem(SEARCH_KEY)||'null')}catch(e){v=null}
@@ -1592,7 +1608,8 @@ function restoreSearchPrefs(){
   if(SCENES[v.scene])search.scene=v.scene;
   if(v.genre&&GENRES.indexOf(v.genre)>=0)search.genre=v.genre;
   if(v.sort&&SORTERS[v.sort]&&v.sort!=='gps')search.sort=v.sort;
-  ['nogate','scored','unrated','want','map'].forEach(function(k){if(typeof v[k]==='boolean')search[k]=v[k]});
+  ['nogate','scored','unrated','want'].forEach(function(k){if(typeof v[k]==='boolean')search[k]=v[k]});
+  if(v.v===SEARCH_PREFS_VER&&typeof v.map==='boolean')search.map=v.map;
   if(v.loc&&typeof v.loc==='object'){
     var p=PREFS.indexOf(v.loc.pref)>=0?v.loc.pref:null;
     search.loc={pref:p,area:p?(v.loc.area||null):null,station:p?(v.loc.station||null):null};
@@ -1796,7 +1813,7 @@ function renderSearch(){
   }).sort(SORTERS[search.sort]||SORTERS.score);
   var box=$('#results');box.textContent='';
   var mb=$('#map-box');
-  if(search.map)renderMapBox(mb,list,null,hasLeaflet()?300:220);
+  if(search.map){renderMapBox(mb,list,null,hasLeaflet()?300:220);autoLocateIfGranted()}
   else{if(mb._lmap){try{mb._lmap.remove()}catch(e){}mb._lmap=null}mb.textContent=''}
   var hasDemo=all.some(function(r){return r.demo});
   var dc=$('#demo-ctl');dc.textContent='';
