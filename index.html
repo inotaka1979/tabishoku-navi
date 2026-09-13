@@ -2381,7 +2381,7 @@ function hasHotpepper(){return !!(window.HOTPEPPER_KEY&&typeof window.HOTPEPPER_
 var jsonpSeq=0;
 function jsonp(url,timeoutMs){
   return new Promise(function(res,rej){
-    var name='__hp_cb'+(++jsonpSeq),s=document.createElement('script'),done=false;
+    var name='hpcb'+(++jsonpSeq),s=document.createElement('script'),done=false;
     var timer=setTimeout(function(){if(done)return;done=true;cleanup();rej(new Error('timeout'))},timeoutMs||12000);
     function cleanup(){clearTimeout(timer);try{delete window[name]}catch(e){window[name]=undefined}if(s.parentNode)s.parentNode.removeChild(s)}
     window[name]=function(data){if(done)return;done=true;cleanup();res(data)};
@@ -2394,10 +2394,17 @@ function fetchHotpepperNearby(lat,lng,radius){
   var range=radius<=300?1:radius<=500?2:radius<=1000?3:radius<=2000?4:5;
   var key='hp:'+lat.toFixed(3)+','+lng.toFixed(3)+','+range;
   if(osmCache[key])return Promise.resolve(osmCache[key]);
-  var url='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100&format=jsonp';
-  return jsonp(url).then(function(j){
+  var base='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100';
+  /* まず通常の JSON 取得（CORS）。ブラウザに拒否されたら JSONP に切り替える */
+  function viaFetch(){
+    return fetch(base+'&format=json',{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json()});
+  }
+  function viaJsonp(){return jsonp(base+'&format=jsonp',8000)}
+  return viaFetch()['catch'](function(e1){
+    return viaJsonp()['catch'](function(e2){throw new Error('json:'+(e1&&e1.message||'?')+' / jsonp:'+(e2&&e2.message||'?'))});
+  }).then(function(j){
     var r=j&&j.results,shops=(r&&r.shop)||[];
-    if(r&&r.error)throw new Error((r.error[0]&&r.error[0].message)||'hotpepper');
+    if(r&&r.error)throw new Error('API '+((r.error[0]&&(r.error[0].code+' '+r.error[0].message))||'error'));
     var out=shops.map(function(s){
       return{id:'hp/'+s.id,src:'hp',name:s.name,lat:+s.lat,lng:+s.lng,
         tags:{genre:(s.genre&&s.genre.name)||'',budget:(s.budget&&s.budget.name)||'',station:s.station_name||'',open:s.open||'',close:s.close||'',
