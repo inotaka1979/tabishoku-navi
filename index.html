@@ -54,6 +54,10 @@ body.has-bar .app{padding-bottom:140px}
 .d-head .d-name{flex:1;min-width:0;margin-top:0}
 .share{font-size:13px;border:1px solid var(--indigo);color:var(--indigo);background:transparent;border-radius:999px;padding:3px 10px;cursor:pointer;font-family:inherit}
 .legend{margin-top:6px}
+#recent-box{margin-top:10px}
+#recent-box .hint{margin:0 0 6px}
+.tel{color:var(--indigo);text-decoration:none;font-weight:500}
+.backup-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .lmap{width:100%;border-radius:10px;overflow:hidden;background:var(--indigo-soft);margin-top:8px;z-index:0;position:relative}
 .lmap-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
 .lmap-note{margin:0;flex-basis:100%}
@@ -270,6 +274,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
     </div>
     <p class="rcount"><span id="rcount"></span><span id="demo-ctl"></span></p>
     <p class="hint legend" id="legend" hidden></p>
+    <div id="recent-box" hidden><p class="hint">最近見た店</p><div class="frow" id="recent"></div></div>
     <div id="map-box"></div>
     <div id="results"></div>
   </main>
@@ -286,7 +291,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
       <div class="field"><label for="store">店名</label><input id="store" type="text" placeholder="例：炉ばた 〇〇" autocomplete="off"></div>
       <div id="store-suggest" class="suggest"></div>
       <div class="row2">
-        <div class="field"><label for="pref">都道府県</label><select id="pref"></select></div>
+        <div class="field"><label for="pref">都道府県　<button type="button" class="link" id="pref-geo">現在地から</button></label><select id="pref"></select></div>
         <div class="field"><label for="area">エリア</label><input id="area" class="plain" type="text" list="area-list" placeholder="例：国分町" autocomplete="off"></div>
       </div>
       <datalist id="area-list"></datalist><datalist id="station-list"></datalist>
@@ -307,7 +312,11 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
           <div class="field"><label for="station">最寄り駅</label><input id="station" class="plain" type="text" list="station-list" placeholder="例：勾当台公園駅" autocomplete="off"></div>
           <div class="field"><label for="walk">駅から徒歩（分）</label><input id="walk" class="plain" type="number" inputmode="numeric" min="0" placeholder="例：3"></div>
         </div>
-        <div class="field"><label for="budget">一人あたり（円）</label><input id="budget" class="plain" type="number" inputmode="numeric" min="0" step="100" placeholder="例：4500"></div>
+        <div class="row2">
+          <div class="field"><label for="budget">一人あたり（円）</label><input id="budget" class="plain" type="number" inputmode="numeric" min="0" step="100" placeholder="例：4500"></div>
+          <div class="field"><label for="lo">ラストオーダー（時刻）</label><input id="lo" class="plain" type="time"></div>
+        </div>
+        <p class="hint">徒歩分とラストオーダーを入れると「駅・ホテルから」「ラストオーダー」の点が自動で入ります（手で変えることもできます）。</p>
         <div class="q">
           <span class="qlabel">リンク</span>
           <a id="gmap" class="pill" target="_blank" rel="noopener" hidden>Google Mapsで探す</a>
@@ -502,6 +511,23 @@ var SEED={
  '沖縄':[['国際通り','牧志駅'],['松山','県庁前駅'],['栄町','安里駅']]
 };
 var CITY2PREF={'札幌':'北海道','函館':'北海道','旭川':'北海道','盛岡':'岩手','仙台':'宮城','郡山':'福島','宇都宮':'栃木','高崎':'群馬','大宮':'埼玉','横浜':'神奈川','川崎':'神奈川','金沢':'石川','甲府':'山梨','松本':'長野','浜松':'静岡','名古屋':'愛知','四日市':'三重','津':'三重','大津':'滋賀','神戸':'兵庫','姫路':'兵庫','松江':'島根','倉敷':'岡山','下関':'山口','高松':'香川','松山':'愛媛','博多':'福岡','小倉':'福岡','久留米':'福岡','佐世保':'長崎','別府':'大分','那覇':'沖縄'};
+/* 都道府県庁の座標。現在地から最寄りの都道府県を推定するために使う（外部通信なし） */
+var PREF_LL={'北海道':[43.064,141.347],'青森':[40.824,140.740],'岩手':[39.704,141.153],'宮城':[38.269,140.872],'秋田':[39.719,140.102],'山形':[38.240,140.364],'福島':[37.750,140.468],
+ '茨城':[36.342,140.447],'栃木':[36.566,139.884],'群馬':[36.391,139.060],'埼玉':[35.857,139.649],'千葉':[35.605,140.123],'東京':[35.689,139.692],'神奈川':[35.448,139.642],
+ '新潟':[37.902,139.023],'富山':[36.695,137.211],'石川':[36.595,136.626],'福井':[36.065,136.222],'山梨':[35.664,138.568],'長野':[36.651,138.181],
+ '岐阜':[35.391,136.722],'静岡':[34.977,138.383],'愛知':[35.180,136.907],'三重':[34.730,136.509],
+ '滋賀':[35.005,135.869],'京都':[35.021,135.756],'大阪':[34.686,135.520],'兵庫':[34.691,135.183],'奈良':[34.685,135.833],'和歌山':[34.226,135.168],
+ '鳥取':[35.504,134.238],'島根':[35.472,133.051],'岡山':[34.662,133.935],'広島':[34.396,132.459],'山口':[34.186,131.471],
+ '徳島':[34.066,134.559],'香川':[34.340,134.043],'愛媛':[33.842,132.766],'高知':[33.560,133.531],
+ '福岡':[33.607,130.418],'佐賀':[33.249,130.299],'長崎':[32.745,129.874],'熊本':[32.790,130.742],'大分':[33.238,131.613],'宮崎':[31.911,131.424],'鹿児島':[31.560,130.558],'沖縄':[26.212,127.681]};
+function prefFromPos(lat,lng){
+  var best='',bd=Infinity;
+  Object.keys(PREF_LL).forEach(function(p){
+    var c=PREF_LL[p],dy=(c[0]-lat)*110574,dx=(c[1]-lng)*111320*Math.cos(lat*Math.PI/180),d=dx*dx+dy*dy;
+    if(d<bd){bd=d;best=p}
+  });
+  return best;
+}
 function seedAreas(p){return(SEED[p]||[]).map(function(x){return x[0]})}
 function seedStations(p){var s=[],seen={};(SEED[p]||[]).forEach(function(x){if(x[1]&&!seen[x[1]]){seen[x[1]]=1;s.push(x[1])}});return s}
 function seedStationFor(p,a){var m=(SEED[p]||[]).filter(function(x){return x[0]===a})[0];return m?m[1]:''}
@@ -679,7 +705,7 @@ function toBody(r){
   return{rid:r.rid||ME.rid,name:r.name||myName(),store:r.store,pref:r.pref||'',area:r.area||'',station:r.station||'',walk:r.walk!=null?r.walk:null,
     genre:r.genre||'',budget:r.budget!=null?r.budget:null,scene:r.scene,scores:r.scores||{},expect:r.expect||'',revisit:r.revisit||'',
     proof:r.proof||'none',visitDate:r.visitDate||ymd(r.createdAt),hasPhoto:!!(r.hasPhoto||(r.photoIds&&r.photoIds.length)),sid:r.sid||'',
-    sharedPhotos:(r.sharedPhotos||[]).slice(),thumb:r.thumb||'',
+    sharedPhotos:(r.sharedPhotos||[]).slice(),thumb:r.thumb||'',loTime:r.loTime||'',
     tags:(r.tags||[]).slice(),dishes:(r.dishes||[]).slice(),links:(r.links||[]).slice(),createdAt:r.createdAt,updatedAt:Date.now()};
 }
 
@@ -728,7 +754,7 @@ function keyOf(store,pref,area){return[(store||'').trim().toLowerCase(),(pref||'
 function recKey(r){return r.sid?('s:'+r.sid):keyOf(r.store,r.pref,r.area)}
 function emptyGroup(s,M,sc){
   var g={key:'s:'+s.id,sid:s.id,master:s,visits:[],store:s.name,pref:s.pref||'',area:s.city||'',station:'',walk:null,genre:'',
-    photos:[],thumb:'',links:[],n:0,counted:0,uncounted:0,dist:[0,0,0,0,0],proofN:{receipt:0,sameday:0,none:0},
+    photos:[],thumb:'',loTime:'',links:[],n:0,counted:0,uncounted:0,dist:[0,0,0,0,0],proofN:{receipt:0,sameday:0,none:0},
     people:0,peopleAll:0,names:[],mean:null,total:null,mine:null,show:null,showKind:'',thin:false,noScore:true,
     gapRate:null,upRate:null,revisitRate:null,budget:null,dishes:[],hits:[],misses:[],tags:[],gate:[],lastVisit:0,M:M};
   g.cats={};CATS.forEach(function(c){g.cats[c.id]={score:null,weight:sc.w[c.id]}});
@@ -750,7 +776,7 @@ function aggregate(recs,sceneName){
     g.visits.sort(function(a,b){return b.createdAt-a.createdAt});
     if(g.sid)g.master=masterById(g.sid);
     var latest=g.visits[0];
-    g.store=latest.store;g.pref=latest.pref||'';g.area=latest.area||'';g.station='';g.walk=null;g.genre='';g.photos=[];g.links=[];g.thumb='';
+    g.store=latest.store;g.pref=latest.pref||'';g.area=latest.area||'';g.station='';g.walk=null;g.genre='';g.photos=[];g.links=[];g.thumb='';g.loTime='';
     var seen={},sum=0,n=0,wsum=0,wacc=0,cat={},catN={},exAns=0,exUp=0,exDown=0,rvAns=0,rvYes=0,budgets=[],dishes={},tags={},people={},allPeople={},gateLatest=null,simSeen=false;
     var dist=[0,0,0,0,0],uncounted=0,proofN={receipt:0,sameday:0,none:0},gateSet=false;
     g.visits.forEach(function(r,i){
@@ -774,6 +800,7 @@ function aggregate(recs,sceneName){
       (r.tags||[]).forEach(function(t){tags[t]=(tags[t]||0)+1});
       photosOf(r).forEach(function(p){g.photos.push(p)});
       if(!g.thumb&&r.thumb)g.thumb=r.thumb;
+      if(!g.loTime&&r.loTime)g.loTime=r.loTime;
       (r.links||[]).forEach(function(l){if(l&&l.url&&!seen[l.url]){seen[l.url]=1;g.links.push(l)}});
       allPeople[r.rid||'?']=nameOf(r);
       if(!g.genre&&r.genre)g.genre=r.genre;
@@ -1013,7 +1040,22 @@ function gcPhotos(){
 
 /* ============ 裏：採点画面 ============ */
 var state=blank(),refs={items:{},cats:{}},rateMode='simple';
-function blank(){return{id:newId('r'),sid:'',store:'',pref:'',area:'',station:'',walk:null,genre:null,budget:null,visitDate:ymd(Date.now()),proof:'sameday',scene:'一人出張',scores:{},expect:null,revisit:null,tags:[],dishes:[],links:[],photoIds:[],removed:[],editingId:null,createdAt:Date.now(),lat:null,lng:null}}
+function blank(){return{id:newId('r'),sid:'',store:'',pref:'',area:'',station:'',walk:null,genre:null,budget:null,visitDate:ymd(Date.now()),proof:'sameday',scene:((typeof search==='object'&&search&&SCENES[search.scene])?search.scene:'一人出張'),scores:{},expect:null,revisit:null,tags:[],dishes:[],links:[],photoIds:[],removed:[],editingId:null,createdAt:Date.now(),lat:null,lng:null,loTime:'',autoDist:false,autoLo:false}}
+/* 徒歩分 → 「駅・ホテルから」の点、ラストオーダー時刻 → 「ラストオーダー」の点 に自動変換 */
+function walkScore(w){return w<=2?5:w<=5?4:w<=10?3:w<=15?2:1}
+function loScore(t){
+  var m=/^(\d{1,2}):(\d{2})$/.exec(t||'');if(!m)return null;
+  var h=+m[1],mi=+m[2];if(h<5)h+=24;
+  var min=h*60+mi;
+  return min<21*60?1:min<22*60?2:min<23*60?3:min<24*60?4:5;
+}
+function applyAutoScores(){
+  if(state.walk!=null&&(state.autoDist||state.scores.distance==null)){state.scores.distance=walkScore(state.walk);state.autoDist=true}
+  else if(state.walk==null&&state.autoDist){delete state.scores.distance;state.autoDist=false}
+  var ls=loScore(state.loTime);
+  if(ls!=null&&(state.autoLo||state.scores.lo==null)){state.scores.lo=ls;state.autoLo=true}
+  else if(ls==null&&state.autoLo){delete state.scores.lo;state.autoLo=false}
+}
 
 /* ============ 下書き（入力途中を端末に自動保存） ============ */
 var DRAFT_KEY='atari:draft',draftTimer=null,draftRestored=false;
@@ -1123,7 +1165,12 @@ function buildRate(){
   $('#area').addEventListener('input',function(e){state.area=e.target.value;update()});
   $('#area').addEventListener('change',function(e){var st=seedStationFor(state.pref,e.target.value.trim());if(st&&!state.station){state.station=st;$('#station').value=st}});
   $('#station').addEventListener('input',function(e){state.station=e.target.value});
-  $('#walk').addEventListener('input',function(e){var v=parseInt(e.target.value,10);state.walk=(e.target.value!==''&&v>=0)?v:null});
+  $('#walk').addEventListener('input',function(e){var v=parseInt(e.target.value,10);state.walk=(e.target.value!==''&&v>=0)?v:null;applyAutoScores();update()});
+  ['input','change'].forEach(function(ev){$('#lo').addEventListener(ev,function(e){state.loTime=e.target.value||'';applyAutoScores();update()})});
+  $('#pref-geo').addEventListener('click',function(){
+    function put(){var p=prefFromPos(search.pos.lat,search.pos.lng);if(!p)return;state.pref=p;$('#pref').value=p;updateLocLists();update();toast('現在地から「'+p+'」を入れました')}
+    if(search.pos)put();else locateMe(put);
+  });
   $('#visit').addEventListener('change',function(e){state.visitDate=e.target.value||ymd(Date.now());update()});
   PROOFS.forEach(function(pf){var b=chip(pf.name);b.dataset.proof=pf.id;b.addEventListener('click',function(){state.proof=pf.id;update()});$('#proofs').appendChild(b)});
 
@@ -1157,6 +1204,8 @@ function buildRate(){
           b.setAttribute('aria-label',it.name+' '+lv+' '+it.a[lv-1]);
           b.addEventListener('click',function(){
             if(state.scores[it.id]===lv)delete state.scores[it.id];else state.scores[it.id]=lv;
+            if(it.id==='distance')state.autoDist=false;
+            if(it.id==='lo')state.autoLo=false;
             update();
           });
           scale.appendChild(b);btns.push(b);
@@ -1228,7 +1277,8 @@ function update(){
     r.btns.forEach(function(b,i){var lv=i+1;b.setAttribute('aria-pressed',String(v===lv));b.classList.toggle('bad',!!r.it.gate&&lv<=GATE_LIMIT)});
     r.mul.hidden=!(sc.m[id]>1);
     r.anchor.textContent='';
-    if(v){r.anchor.classList.add('on');r.anchor.appendChild(el('span',null,v+'　'+r.it.a[v-1]))}
+    var auto=(id==='distance'&&state.autoDist&&state.walk!=null)?'徒歩'+state.walk+'分から自動':(id==='lo'&&state.autoLo&&state.loTime)?'L.O. '+state.loTime+' から自動':'';
+    if(v){r.anchor.classList.add('on');r.anchor.appendChild(el('span',null,v+'　'+r.it.a[v-1]+(auto?'（'+auto+'）':'')))}
     else{r.anchor.classList.remove('on');r.anchor.appendChild(el('span',null,'1 '+r.it.a[0]));r.anchor.appendChild(el('span',null,'5 '+r.it.a[4]))}
   });
   CATS.forEach(function(c){
@@ -1296,10 +1346,10 @@ function renderBar(res){
 function cleanDishes(){return state.dishes.filter(function(d){return d.name&&d.name.trim()}).map(function(d){return{name:d.name.trim(),verdict:d.verdict||null}})}
 function syncInputs(){
   $('#store').value=state.store;$('#pref').value=state.pref||'';$('#area').value=state.area||'';$('#station').value=state.station||'';
-  $('#walk').value=state.walk!=null?state.walk:'';$('#budget').value=state.budget||'';$('#visit').value=state.visitDate||ymd(Date.now());
+  $('#walk').value=state.walk!=null?state.walk:'';$('#budget').value=state.budget||'';$('#visit').value=state.visitDate||ymd(Date.now());$('#lo').value=state.loTime||'';
   $('#store').classList.remove('invalid');$('#link-url').value='';$('#link-label').value='';
   /* 駅・予算・リンクのどれかに値があるときだけ詳細を開いた状態にする */
-  if(state.station||state.walk!=null||state.budget||(state.links&&state.links.length))$('#rate-more').open=true;
+  if(state.station||state.walk!=null||state.budget||state.loTime||(state.links&&state.links.length))$('#rate-more').open=true;
   updateLocLists();
 }
 function resetDraft(){state=blank();syncInputs();renderDishes();renderLinks();renderPhotos();renderStoreSuggest();update()}
@@ -1345,7 +1395,7 @@ function save(){
   var rec={id:id,rid:ME.rid,name:myName(),store:store,pref:state.pref||'',area:state.area.trim(),station:state.station.trim(),walk:state.walk,
     genre:state.genre||'',budget:state.budget,scene:state.scene,scores:state.scores,expect:state.expect||'',revisit:state.revisit||'',
     proof:effProof(),visitDate:state.visitDate||ymd(Date.now()),hasPhoto:state.photoIds.length>0,sid:state.sid||'',
-    tags:state.tags,dishes:cleanDishes(),links:state.links.slice(),createdAt:old?old.createdAt:Date.now(),
+    tags:state.tags,dishes:cleanDishes(),links:state.links.slice(),createdAt:old?old.createdAt:Date.now(),loTime:state.loTime||'',
     sharedPhotos:old?(old.sharedPhotos||[]).slice():[],thumb:old?(old.thumb||''):''};
   setPhotosFor(id,state.photoIds);
   var photoIds=state.photoIds.slice();
@@ -1388,7 +1438,8 @@ function edit(id){
   if(!isMine(r)){toast('他の人の採点は編集できません');return}
   state={id:r.id,sid:r.sid||'',store:r.store||'',pref:r.pref||'',area:r.area||'',station:r.station||'',walk:r.walk>0?r.walk:null,genre:r.genre||null,budget:r.budget||null,visitDate:r.visitDate||ymd(r.createdAt),proof:r.proof||'none',
     scene:SCENES[r.scene]?r.scene:'標準',scores:Object.assign({},r.scores||{}),expect:r.expect||null,revisit:r.revisit||null,tags:(r.tags||[]).slice(),
-    dishes:(r.dishes||[]).map(function(d){return{name:d.name,verdict:d.verdict||null}}),links:(r.links||[]).slice(),photoIds:photosOf(r),removed:[],editingId:id,createdAt:r.createdAt||Date.now()};
+    dishes:(r.dishes||[]).map(function(d){return{name:d.name,verdict:d.verdict||null}}),links:(r.links||[]).slice(),photoIds:photosOf(r),removed:[],editingId:id,createdAt:r.createdAt||Date.now(),
+    lat:null,lng:null,loTime:r.loTime||'',autoDist:false,autoLo:false};
   rateMode='full';
   syncInputs();renderDishes();renderLinks();renderPhotos();update();showView('rate');
   toast('「'+r.store+'」'+dateStr(r.createdAt)+'の採点を編集しています');
@@ -1417,6 +1468,7 @@ function rateStore(g){
   clearDraftStore();resetDraft();
   state.sid=g.sid||(g.master?g.master.id:'');
   state.store=g.store;state.pref=g.pref||'';state.area=g.area||'';state.station=g.station||'';state.walk=g.walk!=null?g.walk:null;state.genre=g.genre||null;
+  applyAutoScores();
   syncInputs();update();showView('rate');
   toast('「'+g.store+'」の採点を始めます');
 }
@@ -1443,6 +1495,7 @@ function renderStoreSuggest(){
       if(!state.station)state.station=g.station||'';
       if(state.walk==null)state.walk=g.walk!=null?g.walk:null;
       if(!state.genre)state.genre=g.genre||null;
+      applyAutoScores();
       syncInputs();update();renderStoreSuggest();
       toast('「'+g.store+'」と同じ店として記録します');
     });
@@ -1526,6 +1579,72 @@ function shareStore(g){
   else toast('このページのURLをそのまま共有してください');
 }
 function setLoc(loc){search.loc=loc;renderSearch()}
+/* 絞り込み・シーンを端末に記憶し、次回開いたときに復元する */
+var SEARCH_KEY='atari:search';
+function saveSearchPrefs(){
+  try{localStorage.setItem(SEARCH_KEY,JSON.stringify({scene:search.scene,genre:search.genre,sort:search.sort==='gps'?'score':search.sort,nogate:search.nogate,scored:search.scored,unrated:search.unrated,want:search.want,map:search.map,loc:search.loc}))}catch(e){}
+}
+function restoreSearchPrefs(){
+  var v=null;try{v=JSON.parse(localStorage.getItem(SEARCH_KEY)||'null')}catch(e){v=null}
+  if(!v||typeof v!=='object')return;
+  if(SCENES[v.scene])search.scene=v.scene;
+  if(v.genre&&GENRES.indexOf(v.genre)>=0)search.genre=v.genre;
+  if(v.sort&&SORTERS[v.sort]&&v.sort!=='gps')search.sort=v.sort;
+  ['nogate','scored','unrated','want','map'].forEach(function(k){if(typeof v[k]==='boolean')search[k]=v[k]});
+  if(v.loc&&typeof v.loc==='object'){
+    var p=PREFS.indexOf(v.loc.pref)>=0?v.loc.pref:null;
+    search.loc={pref:p,area:p?(v.loc.area||null):null,station:p?(v.loc.station||null):null};
+  }
+}
+/* 最近見た店（この端末） */
+var RECENT_KEY='atari:recent';
+function loadRecent(){try{var v=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');return Array.isArray(v)?v:[]}catch(e){return[]}}
+function pushRecent(k){if(!k)return;var r=loadRecent().filter(function(x){return x!==k});r.unshift(k);try{localStorage.setItem(RECENT_KEY,JSON.stringify(r.slice(0,10)))}catch(e){}}
+function renderRecent(groups){
+  var box=$('#recent-box'),row=$('#recent');row.textContent='';
+  var byKey={};groups.forEach(function(g){byKey[g.key]=g});
+  var items=loadRecent().map(function(k){return byKey[k]}).filter(Boolean).slice(0,8);
+  if(!items.length||search.q.trim()||search.want){box.hidden=true;return}
+  box.hidden=false;
+  items.forEach(function(g){var c=chip(g.store+(g.show!=null?'　'+fmt1(g.show):''));c.addEventListener('click',function(){detailKey=g.key;showView('detail')});row.appendChild(c)});
+}
+/* 記録のバックアップ（書き出し / 読み込み）。端末を替えるときに使う */
+function exportBackup(){
+  var mine=records().filter(function(r){return isMine(r)&&!r.demo});
+  var data={app:'tabishoku-navi',version:1,exportedAt:new Date().toISOString(),
+    me:{rid:ME.rid,name:ME.name||'',home:ME.home||'',calib:ME.calib||{}},
+    ratings:mine.map(function(r){var o=toBody(r);o.id=r.id;return o}),
+    wants:loadWants(),infos:loadLocalInfos()};
+  var text=JSON.stringify(data);
+  try{
+    var blob=new Blob([text],{type:'application/json'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='tabishoku-navi-'+ymd(Date.now())+'.json';
+    document.body.appendChild(a);a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);
+    toast('採点 '+data.ratings.length+'件を書き出しました。ファイル App などに保存してください',4200);
+  }catch(e){toast('この環境ではファイルを保存できません')}
+}
+function importBackup(file){
+  var fr=new FileReader();
+  fr.onload=function(){
+    var d=null;try{d=JSON.parse(fr.result)}catch(e){toast('読み込めませんでした（JSON ではありません）');return}
+    if(!d||d.app!=='tabishoku-navi'||!Array.isArray(d.ratings)){toast('このアプリの書き出しファイルではありません');return}
+    var msg='採点 '+d.ratings.length+'件を読み込みます。';
+    if(d.me&&d.me.rid&&d.me.rid!==ME.rid)msg+='\n書き出した端末の「自分」（'+(d.me.name||'名無し')+'）として引き継ぎます。';
+    if(!confirm(msg))return;
+    if(d.me&&d.me.rid){ME.rid=d.me.rid;if(d.me.name)ME.name=d.me.name;if(d.me.home)ME.home=d.me.home;if(d.me.calib&&typeof d.me.calib==='object')ME.calib=d.me.calib;saveMe()}
+    var have={};records().forEach(function(r){have[r.id]=1});
+    var list=localLoad(),n=0;
+    d.ratings.forEach(function(r){if(!r||!r.id||have[r.id])return;r=migrate(r);r.rid=ME.rid;delete r.remote;list.push(r);have[r.id]=1;n++});
+    persistLocal(list);
+    if(Array.isArray(d.wants)){var w=loadWants();d.wants.forEach(function(k){if(typeof k==='string'&&w.indexOf(k)<0)w.push(k)});try{localStorage.setItem(WANT_KEY,JSON.stringify(w))}catch(e){}}
+    if(d.infos&&typeof d.infos==='object'){var li=loadLocalInfos();Object.keys(d.infos).forEach(function(k){if(!li[k])li[k]=d.infos[k]});saveLocalInfos()}
+    toast(n+'件を取り込みました'+(remote&&n?'。「共有に移す」で全員から見えるようにできます':''),4200);
+    renderMe();
+  };
+  fr.onerror=function(){toast('ファイルを読めませんでした')};
+  fr.readAsText(file);
+}
 function renderLocBar(cnt){
   var bar=$('#loc-bar');bar.textContent='';
   var loc=search.loc,qp=$('#quick-pref');qp.textContent='';
@@ -1537,7 +1656,15 @@ function renderLocBar(cnt){
   }else{
     var b=el('button','loc-btn wide','エリア・駅から探す');b.type='button';b.addEventListener('click',openPicker);bar.appendChild(b);
     var prefs=Object.keys(cnt.pref).sort(function(a,b2){return cnt.pref[b2]-cnt.pref[a]||PREFS.indexOf(a)-PREFS.indexOf(b2)});
-    qp.hidden=!prefs.length;
+    qp.hidden=false;
+    /* 現在地から都道府県を推定して絞り込む */
+    var here=search.pos?prefFromPos(search.pos.lat,search.pos.lng):'';
+    var gc=chip(here?'📍 '+here+'（現在地）':'📍 現在地の都道府県');
+    gc.addEventListener('click',function(){
+      function go(){var p=prefFromPos(search.pos.lat,search.pos.lng);if(p)setLoc({pref:p,area:null,station:null})}
+      if(search.pos)go();else locateMe(go);
+    });
+    qp.appendChild(gc);
     prefs.forEach(function(p){var c=chip(p+' '+cnt.pref[p]);c.addEventListener('click',function(){setLoc({pref:p,area:null,station:null})});qp.appendChild(c)});
   }
 }
@@ -1669,6 +1796,8 @@ function renderSearch(){
   $('#rcount').textContent=(all.length||groups.length)?list.length+'軒／'+Object.keys(ppl).length+'人の採点'+(unrated&&!search.unrated?'・未評価'+unrated+'軒':'')+'（'+search.scene+'の重み）':'';
   var lg=$('#legend'),anyThin=list.some(function(g){return g.thin&&!g.noScore});
   lg.hidden=!anyThin;lg.textContent=anyThin?'点線のスタンプは 1 人だけの採点。件数が少ない店は全体平均に寄せて表示しています。':'';
+  renderRecent(groups);
+  saveSearchPrefs();
   markOverflow();
   if(!all.length&&!groups.length){
     var e=el('div','empty');
@@ -1693,7 +1822,7 @@ function renderSearch(){
     body.appendChild(top);
     if(g.loc)body.appendChild(el('p','meta',g.loc));
     var dm=search.pos?distFromMe(g):null;
-    var m2=[infoGenre(g),infoBudget(g)!=null?'一人 '+yen(infoBudget(g)):'',dm!=null?'現在地から '+fmtDist(dm):(search.sort==='gps'?'位置が未登録':'')].filter(Boolean).join('　');
+    var m2=[infoGenre(g),infoBudget(g)!=null?'一人 '+yen(infoBudget(g)):'',g.loTime?'L.O. '+g.loTime:'',dm!=null?'現在地から '+fmtDist(dm):(search.sort==='gps'?'位置が未登録':'')].filter(Boolean).join('　');
     if(m2)body.appendChild(el('p','meta',m2));
     if(g.n===0){
       if(g.master&&g.master.addr)body.appendChild(el('p','line muted',g.master.addr));
@@ -1742,13 +1871,17 @@ function renderDetail(){
   box.appendChild(hero);
   var dh=el('div','d-head');dh.appendChild(el('h2','d-name',g.store));dh.appendChild(wantBtn(g.key,'lg'));box.appendChild(dh);
   if(g.loc)box.appendChild(el('p','meta',g.loc));
-  var m2=[infoGenre(g),infoBudget(g)!=null?'一人 '+yen(infoBudget(g)):''].filter(Boolean).join('　');
+  var m2=[infoGenre(g),infoBudget(g)!=null?'一人 '+yen(infoBudget(g)):'',g.loTime?'L.O. '+g.loTime:''].filter(Boolean).join('　');
   if(m2)box.appendChild(el('p','meta',m2));
   var inf=infoFor(g);
   if(g.master&&g.master.addr)box.appendChild(el('p','meta',g.master.addr));
   var tel=(inf&&inf.tel)||(g.master&&g.master.tel)||'';
-  var quick=[inf&&inf.hours?inf.hours:'',inf&&inf.holiday?'定休 '+inf.holiday:'',tel].filter(Boolean).join('　');
-  if(quick)box.appendChild(el('p','meta',quick));
+  var quick=[inf&&inf.hours?inf.hours:'',inf&&inf.holiday?'定休 '+inf.holiday:''].filter(Boolean).join('　');
+  if(quick||tel){
+    var qp=el('p','meta',quick);
+    if(tel){if(quick)qp.appendChild(document.createTextNode('　'));qp.appendChild(telLink(tel))}
+    box.appendChild(qp);
+  }
 
   var ds=el('div','d-score');
   var wrap=el('div','stampwrap');
@@ -2086,6 +2219,12 @@ function renderImportCounts(){
 }
 
 /* ============ 店の情報（みんなで埋める） ============ */
+/* 電話番号をタップで発信できるリンクにする */
+function telLink(tel){
+  var digits=String(tel||'').replace(/[^\d+]/g,'');
+  if(digits.length<6)return el('span',null,tel);
+  var a=el('a','tel','📞 '+tel);a.href='tel:'+digits;return a;
+}
 function mapsGeo(g){
   var c=coordsOf(g),m=g.master;
   if(c)return'https://www.google.com/maps/search/?api=1&query='+c.lat+','+c.lng;
@@ -2210,7 +2349,7 @@ function infoSection(g){
   }
   rows.forEach(function(r){
     var row=el('div','crow');row.appendChild(el('div',null,r[0]));
-    var v=el('div');v.appendChild(el('span',null,r[1]));v.style.color='var(--ink)';row.appendChild(v);sec.appendChild(row);
+    var v=el('div');v.appendChild(r[0]==='電話'?telLink(r[1]):el('span',null,r[1]));v.style.color='var(--ink)';row.appendChild(v);sec.appendChild(row);
   });
   if(i.features&&i.features.length){
     var ch=el('div','chips');ch.style.marginTop='10px';
@@ -2523,6 +2662,9 @@ function buildMe(){
   $('#me-name').addEventListener('input',function(e){ME.name=e.target.value;saveMeRaw(ME)});
   $('#me-name').addEventListener('change',function(){saveMe();refresh()});
   $('#me-home').addEventListener('change',function(e){ME.home=e.target.value;saveMe()});
+  var bf=el('input');bf.type='file';bf.accept='application/json,.json';bf.id='backup-file';bf.hidden=true;
+  bf.addEventListener('change',function(e){var f=e.target.files&&e.target.files[0];e.target.value='';if(f)importBackup(f)});
+  document.body.appendChild(bf);
   var box=$('#calib');
   CHAINS.forEach(function(ch){
     var row=el('div','cal');
@@ -2576,6 +2718,11 @@ function renderMe(){
   var names=[];all.forEach(function(r){var nm=nameOf(r);if(names.indexOf(nm)<0&&nm)names.push(nm)});
   if(names.length)d.appendChild(el('p','hint','採点している人：'+names.join('、')));
   d.appendChild(el('p','hint','表示名は自己申告です。同じ端末で開き直すと同じ人として扱われます。'));
+  var br=el('div','backup-row');
+  var ex=el('button','loc-btn','記録を書き出す');ex.type='button';ex.addEventListener('click',exportBackup);br.appendChild(ex);
+  var im=el('button','loc-btn','記録を読み込む');im.type='button';im.addEventListener('click',function(){$('#backup-file').click()});br.appendChild(im);
+  d.appendChild(br);
+  d.appendChild(el('p','hint','端末を替えるときのバックアップです。書き出したファイルを新しい端末で読み込むと、あなたの採点・行きたいリスト・表示名が引き継がれます（写真は含まれません）。'));
 }
 
 /* ============ デモ（この端末だけ） ============ */
@@ -2693,7 +2840,7 @@ function showView(v,opt){
     if(cur!==(url==='#'?'':url)){try{history.pushState({d:histDepth+1},'',url);histDepth++}catch(e){}}
   }
   if(v==='search')renderSearch();
-  if(v==='detail')renderDetail();
+  if(v==='detail'){pushRecent(detailKey);renderDetail()}
   if(v==='me')renderMe();
   if(v==='rate'){updateLocLists();renderStoreSuggest();if(draftRestored){draftRestored=false;toast('前回の入力途中の採点を復元しました',3600)}}
   /* 店ページから一覧へ戻ったときはスクロール位置を保つ */
@@ -2721,7 +2868,8 @@ buildRate();buildSearch();buildMe();buildImport();
 Array.prototype.forEach.call(document.querySelectorAll('.tab'),function(t){t.addEventListener('click',function(){showView(t.dataset.view)})});
 $('#help').addEventListener('click',function(){openIntro(false)});
 seedDemoReviewers();
-restoreDraft();
+restoreSearchPrefs();
+if(!restoreDraft())state=blank();
 syncInputs();renderDishes();renderLinks();renderPhotos();update();
 var r0=parseRoute();
 if(r0.v==='detail'&&r0.key)detailKey=r0.key;
