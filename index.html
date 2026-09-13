@@ -66,7 +66,8 @@ body.has-bar .app{padding-bottom:140px}
 .lpin.none{background:#fff;color:var(--indigo);border-color:var(--indigo)}
 .lpin.focus{background:var(--shu);width:34px;height:34px;font-size:12px}
 .lpin.want{box-shadow:0 0 0 3px var(--shu)}
-.lpin.osm{width:14px;height:14px;background:#8A929E;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.lpin.osm{width:20px;height:20px;background:#F5B841;border:2.5px solid #fff;box-shadow:0 0 0 1.5px #B86A00,0 1px 4px rgba(0,0,0,.4)}
+.lpin.osm.hp{background:#F0742B;box-shadow:0 0 0 1.5px #9C3D07,0 1px 4px rgba(0,0,0,.4)}
 .lpop-img{display:block;width:100%;max-height:120px;object-fit:cover;border-radius:8px;margin-bottom:6px}
 .lpop b{display:block;font:700 15px var(--serif);color:#1B2333}
 .lpop small{display:block;font-size:12px;color:#4A5160;margin-top:2px}
@@ -2456,7 +2457,7 @@ function pinIcon(p,focus){
   var cls='lpin'+(focus?' focus':(p.score==null?' none':''))+(isWant(p.key)?' want':'');
   return L.divIcon({className:'lpin-wrap',html:'<div class="'+cls+'">'+(p.score!=null?fmt1(p.score):'・')+'</div>',iconSize:[30,30],iconAnchor:[15,15],popupAnchor:[0,-16]});
 }
-function osmIcon(){return L.divIcon({className:'lpin-wrap',html:'<div class="lpin osm"></div>',iconSize:[14,14],iconAnchor:[7,7],popupAnchor:[0,-8]})}
+function osmIcon(src){return L.divIcon({className:'lpin-wrap',html:'<div class="lpin osm'+(src==='hp'?' hp':'')+'"></div>',iconSize:[20,20],iconAnchor:[10,10],popupAnchor:[0,-11]})}
 function lpopupStore(p){
   var g=null;allGroups(search.scene).forEach(function(x){if(x.key===p.key)g=x});
   var d=el('div','lpop');
@@ -2622,10 +2623,10 @@ function renderLeafletMap(host,groups,focusKey,h){
       list.forEach(function(o){
         if(have[o.lat.toFixed(4)+','+o.lng.toFixed(4)])return;
         n++;if(o.src==='hp')nhp++;
-        L.marker([o.lat,o.lng],{icon:osmIcon(),zIndexOffset:-100}).addTo(host._osm).bindPopup(function(){return lpopupOsm(o)},{maxWidth:260});
+        L.marker([o.lat,o.lng],{icon:osmIcon(o.src),zIndexOffset:-100}).addTo(host._osm).bindPopup(function(){return lpopupOsm(o)},{maxWidth:260});
       });
-      var src=hasHotpepper()?'ホットペッパー '+nhp+'軒 + OpenStreetMap '+(n-nhp)+'軒':'OpenStreetMap より。日本の登録は少なめです';
-      host._note.textContent=n?'地図の中心から 1km の飲食店 '+n+'軒（灰色の点。'+src+'）':'この範囲には登録された飲食店が見つかりません'+(hasHotpepper()?'':'（OpenStreetMap の登録は少なめです）');
+      var src=hasHotpepper()?'オレンジ = ホットペッパー '+nhp+'軒、黄 = OpenStreetMap '+(n-nhp)+'軒':'黄の点 = OpenStreetMap。日本の登録は少なめです';
+      host._note.textContent=n?'地図の中心から 1km の飲食店 '+n+'軒（'+src+'。青 = 登録済みの店）':'この範囲には登録された飲食店が見つかりません'+(hasHotpepper()?'':'（OpenStreetMap の登録は少なめです）');
       if(hasHotpepper()){host._note.appendChild(document.createTextNode('　'));var cr=el('a',null,'Powered by ホットペッパーグルメ Webサービス');cr.href='https://webservice.recruit.co.jp/';cr.target='_blank';cr.rel='noopener';host._note.appendChild(cr)}
     })['catch'](function(){host._note.textContent='';toast('周辺の店を取得できませんでした。しばらくして再度お試しください',3600)});
   }
