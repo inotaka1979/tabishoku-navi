@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// 旅食Navi 用のセキュリティルール
+// - 読み取り: 誰でも可（採点・店情報・縮小写真は公開情報として扱う）
+// - 書き込み: 匿名ログイン済みのアプリ利用者のみ（SDK 外からの無差別な書き込みを防ぐ）
+// - 1 件あたりのサイズ上限を設け、巨大なデータで容量を食い潰されないようにする
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function smallEnough(maxBytes) {
+      return request.resource == null || request.resource.size() < maxBytes;
+    }
+
+    match /ratings/{id} {
+      allow read: if true;
+      allow write: if signedIn() && smallEnough(64 * 1024);
+    }
+
+    match /photo/{id} {
+      allow read: if true;
+      allow write: if signedIn() && smallEnough(300 * 1024);
+    }
+
+    match /info/{id} {
+      allow read: if true;
+      allow write: if signedIn() && smallEnough(32 * 1024);
+    }
+
+    match /reviewers/{id} {
+      allow read: if true;
+      allow write: if signedIn() && smallEnough(8 * 1024);
+    }
+
+    match /stores/{id} {
+      allow read: if true;
+      allow write: if signedIn() && smallEnough(256 * 1024);
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
