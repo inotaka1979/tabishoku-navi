@@ -21,4 +21,4 @@ window.HOTPEPPER_KEY = "fa926e77c5ff30a7";
 /* ホットペッパーの中継 Worker の URL（cloudflare-worker/worker.js を Cloudflare に置いたもの）。
  * ブラウザから webservice.recruit.co.jp を直接呼べないため、これが無いと周辺店は OpenStreetMap だけになります。
  * 例: window.HOTPEPPER_PROXY = "https://tabishoku-proxy.xxxx.workers.dev"; */
-window.HOTPEPPER_PROXY = null;
+window.HOTPEPPER_PROXY = "https://boatrace-scrape-trigger.inotaka1979.workers.dev";

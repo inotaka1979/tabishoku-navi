@@ -71,7 +71,10 @@ OpenStreetMap の飲食店データは日本では登録が少ないため、リ
 2. 届いたメールの **API キー**（英数字 16 桁）をコピー
 3. `firebase-config.js` の `window.HOTPEPPER_KEY = null;` を `window.HOTPEPPER_KEY = "コピーしたキー";` に変えて push
 
-4. ブラウザから直接 API を呼べない（CORS 非対応）ため、中継用の Cloudflare Worker を 1 つ作ります（無料枠）。
+4. ブラウザから直接 API を呼べない（CORS 非対応）ため、中継用の Cloudflare Worker が必要です。
+   現在は boatrace-ai リポジトリの Worker `boatrace-scrape-trigger` の `/hotpepper` ルートを
+   相乗りで使っています（`window.HOTPEPPER_PROXY` に設定済み）。
+   独立した Worker を立てる場合は次の手順です。
    - https://dash.cloudflare.com/ → **Workers & Pages** → **Create** → **Start with Hello World!**
    - 名前を `tabishoku-proxy` にして **Deploy**
    - **Edit code** を開き、`cloudflare-worker/worker.js` の中身を全部貼り付けて **Deploy**
