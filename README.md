@@ -20,6 +20,7 @@
 | 店の点 | 件数が少ないうちは全体平均に寄せたベイズ平均。点線のスタンプは 1 人だけの採点 |
 | 写真 | 元サイズは端末の IndexedDB にだけ保存。共有には長辺 480px の縮小版を 3 枚まで |
 | 共有 | claude.ai 上ではアーティファクトの共有 DB、通常のホスティングでは Firebase Firestore |
+| 地図 | Leaflet + OpenStreetMap で現在地と登録店を表示。周辺の未登録飲食店は OpenStreetMap（Overpass API）から取得。各ピンから Google マップの経路案内へ |
 
 ## 公開手順（GitHub Pages）
 
