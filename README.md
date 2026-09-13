@@ -23,8 +23,9 @@
 
 ## 公開手順（GitHub Pages）
 
-1. リポジトリの **Settings → Pages** を開き、Source が **GitHub Actions** になっていることを確認します
-   （初回の workflow 実行が自動で有効化を試みます。失敗している場合はここで選び直して再実行してください）。
+1. リポジトリの **Settings → Pages** を開き、Source を **GitHub Actions** にします
+   （初回の有効化は手動で行う必要があります。有効化前に workflow が動くと
+   「Resource not accessible by integration」で失敗するので、有効化してから push し直してください）。
 2. `main` に push すると `.github/workflows/pages.yml` が配信します。数十秒で上記 URL に反映されます。
 
 この状態では **端末内モード** で動きます（採点は各自のスマホにだけ保存）。
