@@ -11,3 +11,9 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "250142222574",
   appId: "1:250142222574:web:1d006a731f52d5e95aabff"
 };
+
+/* 周辺の飲食店データ（ホットペッパーグルメ Web サービス）の API キー。
+ * https://webservice.recruit.co.jp/register/ でメール登録すると無料で発行されます。
+ * null のままだと周辺店は OpenStreetMap のデータだけになります（日本では登録が少なめ）。
+ * このキーはページに埋め込まれるため公開されます。利用規約上それで問題ありません。 */
+window.HOTPEPPER_KEY = null;
