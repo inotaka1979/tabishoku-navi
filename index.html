@@ -393,7 +393,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-93d9f49"></script>
+<script src="firebase-config.js?v=after-8f9ca0c"></script>
 <script>
 (function(){
 'use strict';
@@ -455,7 +455,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-14 04:27 UTC (after-93d9f49)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-14 04:28 UTC (after-8f9ca0c)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2615,9 +2615,19 @@ function fetchYahooNearby(lat,lng,radius){
   var km=Math.max(0.3,Math.min(3,Math.round(radius/100)/10));
   var key='yj:'+lat.toFixed(3)+','+lng.toFixed(3)+','+km;
   if(osmCache[key])return Promise.resolve(osmCache[key]);
-  var url='https://map.yahooapis.jp/search/local/V1/localSearch?appid='+encodeURIComponent(window.YAHOO_APPID)+'&lat='+lat+'&lon='+lng+'&dist='+km+'&gc=01&results=100&sort=geo&output=json';
-  return jsonp(url,10000).then(function(j){
-    if(j&&j.Error)throw new Error(j.Error.Message||'yahoo');
+  /* Client ID は通常末尾が「-」。設定値が違っていても、もう一方の形で 1 回だけ試す */
+  var id=String(window.YAHOO_APPID).trim(),alt=/-$/.test(id)?id.slice(0,-1):id+'-';
+  function call(appid){
+    var url='https://map.yahooapis.jp/search/local/V1/localSearch?appid='+encodeURIComponent(appid)+'&lat='+lat+'&lon='+lng+'&dist='+km+'&gc=01&results=100&sort=geo&output=json';
+    return jsonp(url,10000).then(function(j){if(j&&j.Error)throw new Error(j.Error.Message||'yahoo');return j});
+  }
+  var first=window._yjIdOk||id;
+  return call(first)['catch'](function(e){
+    if(window._yjIdOk)throw e;
+    var other=first===id?alt:id;
+    return call(other).then(function(j){window._yjIdOk=other;return j});
+  }).then(function(j){
+    if(!window._yjIdOk)window._yjIdOk=first;
     var out=[];
     ((j&&j.Feature)||[]).forEach(function(f){
       var p=f.Property||{},co=((f.Geometry&&f.Geometry.Coordinates)||'').split(',');
