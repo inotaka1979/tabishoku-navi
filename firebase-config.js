@@ -22,3 +22,8 @@ window.HOTPEPPER_KEY = "fa926e77c5ff30a7";
  * ブラウザから webservice.recruit.co.jp を直接呼べないため、これが無いと周辺店は OpenStreetMap だけになります。
  * 例: window.HOTPEPPER_PROXY = "https://tabishoku-proxy.xxxx.workers.dev"; */
 window.HOTPEPPER_PROXY = "https://boatrace-scrape-trigger.inotaka1979.workers.dev";
+
+/* Yahoo! JAPAN ローカルサーチ API の Client ID（周辺の飲食店データ。ホットペッパー未掲載の店を補う）。
+ * https://e.developer.yahoo.co.jp/register でアプリ登録（クライアントサイド）すると発行されます。
+ * ブラウザから直接呼べるため中継は不要。null なら Yahoo! は使いません。 */
+window.YAHOO_APPID = "dmVyPTIwMjUwNyZpZD1DcUxHZVROdkNCJmhhc2g9T1dZME1tVmhOV0ZtWldNNE5tWmtNdw-";
