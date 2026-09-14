@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>旅食Navi プライバシーポリシー・利用規約</title>
+<style>
+:root{--paper:#F6F7F4;--ink:#1B2333;--indigo:#2B4C7E;--muted:#5C6473;--rule:#D8DBD5}
+@media (prefers-color-scheme:dark){:root{--paper:#14181F;--ink:#E8E6DF;--indigo:#8FB0E8;--muted:#9AA3B2;--rule:#2A313D}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 15px/1.7 "Zen Kaku Gothic New","Hiragino Sans","Yu Gothic",Meiryo,sans-serif}
+main{max-width:640px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:17px;margin:28px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--ink)}
+p,li{margin:6px 0}
+small{color:var(--muted)}
+a{color:var(--indigo)}
+ul{padding-left:1.4em}
+</style>
+</head>
+<body>
+<main>
+<h1>旅食Navi プライバシーポリシー・利用規約</h1>
+<p><small>最終更新: 2026-09-14　運営: 個人（GitHub: inotaka1979）</small></p>
+
+<h2>1. このアプリについて</h2>
+<p>旅食Navi（以下「本アプリ」）は、出張・旅先で飲食店を探し、行った人が採点を共有するための無料の個人開発アプリです。営利目的の運営や広告配信は行っていません。</p>
+
+<h2>2. 取得する情報</h2>
+<ul>
+  <li><b>採点データ</b>: 店名、所在地（都道府県・エリア・駅）、採点、行った日、料理名、リンク、写真の縮小版（長辺 480px・3 枚まで）、表示名（自己申告のニックネーム）。共有データベース（Google Firebase Firestore、東京リージョン）に保存され、本アプリを開いた全員が閲覧できます。</li>
+  <li><b>位置情報</b>: 「現在地」「現在地から近い順」「周辺の店」を使うときだけ、端末の許可を得て取得します。サーバーには送信・保存せず、周辺店の検索条件（緯度経度）として外部 API に渡すのみです。</li>
+  <li><b>端末内データ</b>: 写真の元サイズ、下書き、行きたいリスト、絞り込み設定、最近見た店は端末の中（localStorage / IndexedDB）にだけ保存され、外部には送られません。</li>
+  <li><b>匿名認証</b>: 共有データベースへの書き込みのため、Firebase の匿名ログインを使います。氏名・メールアドレス・電話番号などの個人情報は取得しません。</li>
+</ul>
+
+<h2>3. 外部サービスの利用</h2>
+<ul>
+  <li>Google Firebase（データ保存・匿名認証）</li>
+  <li>ホットペッパーグルメ Web サービス（周辺の飲食店情報。<a href="https://webservice.recruit.co.jp/" target="_blank" rel="noopener">Powered by ホットペッパーグルメ Webサービス</a>）</li>
+  <li>Yahoo! JAPAN ローカルサーチ API（周辺の飲食店情報）</li>
+  <li>OpenStreetMap（地図タイル・店舗データ。© OpenStreetMap contributors）</li>
+  <li>Google マップ（経路案内・店舗検索へのリンク）</li>
+  <li>GitHub Pages（ページの配信）</li>
+</ul>
+<p>各サービスへは、周辺店の検索に必要な緯度経度や店名のみを送ります。各サービスの利用条件はそれぞれの規約に従います。</p>
+
+<h2>4. 情報の利用目的</h2>
+<p>飲食店の検索・採点の表示、周辺店の案内、味覚の近さによる予測点の計算にのみ利用します。第三者への販売・提供は行いません。</p>
+
+<h2>5. 削除について</h2>
+<p>自分が投稿した採点は、店ページの「削除」でいつでも消せます（共有データベースからも削除されます）。端末内のデータはブラウザの設定から削除できます。</p>
+
+<h2>6. 利用規約</h2>
+<ul>
+  <li>採点は行った人の主観による参考情報であり、正確性・最新性を保証しません。</li>
+  <li>他人を誹謗中傷する内容、虚偽の採点、店や個人の権利を侵害する写真の投稿は禁止します。運営者の判断で削除することがあります。</li>
+  <li>本アプリの利用により生じた損害について、運営者は責任を負いません。</li>
+  <li>予告なく機能の変更・提供の終了を行うことがあります。</li>
+</ul>
+
+<h2>7. お問い合わせ</h2>
+<p>GitHub リポジトリ <a href="https://github.com/inotaka1979/tabishoku-navi" target="_blank" rel="noopener">inotaka1979/tabishoku-navi</a> の Issues からご連絡ください。</p>
+
+<p><a href="./">← 旅食Navi に戻る</a></p>
+</main>
+</body>
+</html>
