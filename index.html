@@ -60,6 +60,9 @@ body.has-bar .app{padding-bottom:140px}
 .near-act{flex:none}
 .card.near .thumb{background:var(--shu-soft);color:var(--shu)}
 .card.near .stamp.none{border-style:dotted}
+.line.ext{color:var(--shu);white-space:normal}
+.raw-k{font-size:12px;color:var(--muted);flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.raw-v{font-size:12px;text-align:right;min-width:0;overflow-wrap:anywhere}
 #recent-box{margin-top:10px}
 #recent-box .hint{margin:0 0 6px}
 .tel{color:var(--indigo);text-decoration:none;font-weight:500}
@@ -393,7 +396,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-2601bf7"></script>
+<script src="firebase-config.js?v=after-85adad5"></script>
 <script>
 (function(){
 'use strict';
@@ -455,7 +458,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-15 23:20 UTC (after-2601bf7)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-15 23:33 UTC (after-85adad5)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2612,6 +2615,39 @@ function fetchHotpepperNearby(lat,lng,radius){
     return out;
   });
 }
+/* 提供元の応答から評価らしい項目を探す（rating / score / star = 0〜5 の数値、review/comment ○○count = 件数） */
+function findRating(obj){
+  var out={rating:null,reviews:null};
+  function walk(o,depth){
+    if(!o||typeof o!=='object'||depth>4)return;
+    Object.keys(o).forEach(function(k){
+      var v=o[k],lk=k.toLowerCase();
+      if(v&&typeof v==='object'){walk(v,depth+1);return}
+      var num=typeof v==='number'?v:(typeof v==='string'&&/^\d+(\.\d+)?$/.test(v)?parseFloat(v):NaN);
+      if(isNaN(num))return;
+      if(out.rating==null&&/^(rating|score|star|stars|averagerating|ratingaverage|reviewscore|ratingvalue)$/.test(lk)&&num>=0&&num<=5)out.rating=num;
+      if(out.reviews==null&&/^(review|reviews|comment|comments|rating)(count|num|total)$/.test(lk)&&num>=0)out.reviews=num;
+    });
+  }
+  walk(obj,0);
+  return out;
+}
+/* 店ページの「提供元データ」欄用に、文字列・数値の項目だけを平らにする */
+function flatProps(o){
+  var out=[];
+  function walk(v,prefix,depth){
+    if(depth>3||out.length>60)return;
+    if(v&&typeof v==='object'){
+      if(Array.isArray(v)){v.slice(0,3).forEach(function(x,i){walk(x,prefix+'['+i+']',depth+1)});return}
+      Object.keys(v).forEach(function(k){walk(v[k],prefix?prefix+'.'+k:k,depth+1)});return;
+    }
+    if(v===''||v==null)return;
+    var s=String(v);if(s.length>120)s=s.slice(0,120)+'…';
+    out.push([prefix,s]);
+  }
+  walk(o,'',0);
+  return out;
+}
 /* Yahoo! JAPAN ローカルサーチ API（window.YAHOO_APPID があるときだけ）。JSONP で直接取得できる */
 function hasYahoo(){return !!(window.YAHOO_APPID&&typeof window.YAHOO_APPID==='string')}
 function fetchYahooNearby(lat,lng,radius){
@@ -2637,9 +2673,11 @@ function fetchYahooNearby(lat,lng,radius){
       var ln=parseFloat(co[0]),la=parseFloat(co[1]);
       if(!(la&&ln)||!f.Name)return;
       var det=p.Detail||{},genre=(p.Genre&&p.Genre[0]&&p.Genre[0].Name)||'',st=(p.Station&&p.Station[0]&&p.Station[0].Name)||'';
-      out.push({id:'yj/'+(f.Id||p.Uid||(la+','+ln)),src:'yj',name:f.Name,lat:la,lng:ln,
+      var rv=findRating(f);
+      out.push({id:'yj/'+(f.Id||p.Uid||(la+','+ln)),src:'yj',name:f.Name,lat:la,lng:ln,raw:flatProps(p),
         tags:{genre:genre,station:st,addr:p.Address||'',tel:p.Tel1||'',photo:det.LeadImage||det.Image1||'',photoL:det.LeadImage||det.Image1||'',
-          url:det.PcUrl1||det.Url1||'',access:p.Access1||'',catch_:p.CatchCopy||'',open:det.BusinessHours||det.OpenHours||''}});
+          url:det.PcUrl1||det.Url1||'',access:p.Access1||'',catch_:p.CatchCopy||'',open:det.BusinessHours||det.OpenHours||'',
+          rating:rv.rating,reviews:rv.reviews}});
     });
     osmCache[key]=out;
     return out;
@@ -2675,6 +2713,7 @@ function sameShop(a,b){
 function mergePlaceInfo(keep,dup){
   var t=keep.tags||(keep.tags={}),u=dup.tags||{};
   ['photo','photoL','open','close','tel','url','budget','station','addr','access','genre'].forEach(function(k){if(!t[k]&&u[k])t[k]=u[k]});
+  if(t.rating==null&&u.rating!=null){t.rating=u.rating;t.reviews=u.reviews}
   (keep.also||(keep.also=[])).push(dup);
 }
 /* 周辺の店 = ホットペッパー ∪ Yahoo! ∪ OpenStreetMap。同じ店は情報の多い提供元（先に来た方）に 1 件へまとめる */
@@ -2754,6 +2793,15 @@ function placeGenreMatch(o,gn){
   var head=gn.split('・')[0];
   return pg.indexOf(head)>=0||gn.indexOf(pg.slice(0,2))>=0||(gn==='焼鳥・串'&&/焼鳥|串/.test(pg))||(gn==='寿司・海鮮'&&/寿司|海鮮|魚/.test(pg))||(gn==='定食・食堂'&&/定食|食堂|和食/.test(pg))||(gn==='イタリアン・フレンチ'&&/イタリア|フレンチ|洋食|ダイニング/.test(pg));
 }
+/* 提供元の評価（あるときだけ）。自分たちの点数と混同しないよう提供元名を必ず添える */
+function ratingLine(o){
+  var parts=[];
+  [o].concat(o.also||[]).forEach(function(x){
+    var t=x.tags||{};
+    if(t.rating!=null)parts.push(srcName(x)+'の評価 '+(Math.round(t.rating*10)/10).toFixed(1)+(t.reviews!=null?'（'+t.reviews+'件）':''));
+  });
+  return parts.join('　');
+}
 function placeCard(o){
   var t=o.tags||{},card=el('article','card near');card.setAttribute('role','button');card.tabIndex=0;
   var th=el('div','thumb');th.textContent=o.name.charAt(0);
@@ -2767,6 +2815,7 @@ function placeCard(o){
   var dtxt=d!=null?'現在地から '+fmtDist(d):(dc!=null?'地図の中心から '+fmtDist(dc):'');
   var meta=[placeGenre(o),t.budget||'',t.station?t.station+'駅':'',dtxt].filter(Boolean).join('　');
   if(meta)body.appendChild(el('p','meta',meta));
+  var rl=ratingLine(o);if(rl)body.appendChild(el('p','line ext',rl));
   if(isRich(o)&&t.open)body.appendChild(el('p','line muted',t.open));
   body.appendChild(el('p','stats',srcName(o)+(o.src==='hp'?' 掲載店':' 登録店')+'　最初の採点を待っています'));
   card.appendChild(body);
@@ -2829,6 +2878,7 @@ function renderPlaceDetail(box,o){
   var d=placeDist(o);
   var m1=[placeGenre(o),t.budget||'',t.station?t.station+'駅':'',d!=null?'現在地から '+fmtDist(d):''].filter(Boolean).join('　');
   if(m1)box.appendChild(el('p','meta',m1));
+  var rl=ratingLine(o);if(rl)box.appendChild(el('p','line ext',rl+'　※提供元サイトの評価で、このアプリの点数とは別です'));
   var addr=t.addr||t['addr:full']||'';if(addr)box.appendChild(el('p','meta',addr));
   if(t.access)box.appendChild(el('p','meta',t.access));
   var cta=el('button','cta','この店を採点する');cta.type='button';cta.addEventListener('click',function(){rateOsmPlace(o)});cta.style.marginTop='14px';box.appendChild(cta);
@@ -2875,6 +2925,16 @@ function renderPlaceDetail(box,o){
   rows.forEach(function(r){var row=el('div','crow');row.appendChild(el('div',null,r[0]));var v=el('div');v.style.color='var(--ink)';v.style.textAlign='right';v.appendChild(r[0]==='電話'?telLink(r[1]):el('span',null,r[1]));row.appendChild(v);sec.appendChild(row)});
   box.appendChild(sec);
   box.appendChild(el('p','hint','まだ誰も採点していない店です。情報は'+srcName(o)+'のもので、営業状況は変わっている場合があります。採点して保存すると、この店が登録され点数がつきます。'));
+  /* 提供元が返した項目をそのまま見られる欄（どんな情報が取れているかの確認用） */
+  var raws=[o].concat(o.also||[]).filter(function(x){return x.raw&&x.raw.length});
+  if(raws.length){
+    var det=el('details','more');var sm=el('summary',null,'提供元データ（'+raws.map(srcName).join('・')+'）');det.appendChild(sm);
+    raws.forEach(function(x){
+      det.appendChild(el('p','hint',srcName(x)));
+      x.raw.forEach(function(kv){var row=el('div','crow');row.appendChild(el('div','raw-k',kv[0]));var v=el('div','raw-v');v.textContent=kv[1];row.appendChild(v);det.appendChild(row)});
+    });
+    box.appendChild(det);
+  }
   box.appendChild(creditLine());
 }
 function renderLeafletMap(host,groups,focusKey,h){
