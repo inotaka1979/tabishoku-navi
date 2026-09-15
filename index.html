@@ -393,7 +393,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-d889a63"></script>
+<script src="firebase-config.js?v=after-2601bf7"></script>
 <script>
 (function(){
 'use strict';
@@ -455,7 +455,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-15 23:11 UTC (after-d889a63)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-15 23:20 UTC (after-2601bf7)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2645,17 +2645,50 @@ function fetchYahooNearby(lat,lng,radius){
     return out;
   });
 }
-/* 周辺の店 = ホットペッパー ∪ Yahoo! ∪ OpenStreetMap。同じ位置・同名は情報の多い順（先に来た方）に 1 件へまとめる */
+/* 同じ店かどうか：店名の表記ゆれ（記号・スペース・店/本店、括弧内の支店名など）を吸収した上で、
+   距離が近いほど緩く、遠いほど厳しく名前の類似度を要求する */
+function nameCore(s){
+  s=normKana(s);
+  s=s.replace(/[【】\[\]（）()「」『』〈〉《》]/g,'').replace(/[・･\-‐–—~〜～.,、。!！?？'"’”&＆+＋/／:：;；|｜*＊]/g,'');
+  s=s.replace(/(本店|支店|店)$/,'');
+  return s;
+}
+function bigrams(s){var o={};for(var i=0;i<s.length-1;i++)o[s.substr(i,2)]=1;return o}
+function nameSim(a,b){
+  var A=bigrams(a),B=bigrams(b),ka=Object.keys(A),kb=Object.keys(B);
+  if(!ka.length||!kb.length)return a===b?1:0;
+  var c=0;ka.forEach(function(k){if(B[k])c++});
+  return 2*c/(ka.length+kb.length);
+}
+function sameShop(a,b){
+  var d=distM(a,b);if(d>300)return false;
+  var na=a._core||(a._core=nameCore(a.name)),nb=b._core||(b._core=nameCore(b.name));
+  if(!na||!nb)return false;
+  if(na===nb)return true;
+  if(na.length>=3&&nb.length>=3&&(na.indexOf(nb)>=0||nb.indexOf(na)>=0))return d<200;
+  var s=nameSim(na,nb);
+  if(d<40)return s>=0.4;
+  if(d<150)return s>=0.6;
+  return s>=0.8;
+}
+/* 重複した店の情報を、残す側に補う（写真・営業時間・電話・サイトが無ければ相手から） */
+function mergePlaceInfo(keep,dup){
+  var t=keep.tags||(keep.tags={}),u=dup.tags||{};
+  ['photo','photoL','open','close','tel','url','budget','station','addr','access','genre'].forEach(function(k){if(!t[k]&&u[k])t[k]=u[k]});
+  (keep.also||(keep.also=[])).push(dup);
+}
+/* 周辺の店 = ホットペッパー ∪ Yahoo! ∪ OpenStreetMap。同じ店は情報の多い提供元（先に来た方）に 1 件へまとめる */
 function fetchNearbyPlaces(lat,lng,radius){
   var jobs=[fetchOsmNearby(lat,lng,radius)['catch'](function(){return[]})];
   if(hasYahoo())jobs.unshift(fetchYahooNearby(lat,lng,radius)['catch'](function(e){toast('Yahoo! の取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
   if(hasHotpepper())jobs.unshift(fetchHotpepperNearby(lat,lng,radius)['catch'](function(e){toast('ホットペッパーの取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
   return Promise.all(jobs).then(function(lists){
-    var out=[],seen={};
+    var out=[];
     lists.forEach(function(list){list.forEach(function(o){
-      var k1=normKana(o.name).replace(/(店|本店|支店)$/,''),k2=o.lat.toFixed(4)+','+o.lng.toFixed(4);
-      if(seen['n:'+k1]||(seen['p:'+k2]&&seen['pn:'+k2]===k1.slice(0,4)))return;
-      seen['n:'+k1]=1;seen['p:'+k2]=1;seen['pn:'+k2]=k1.slice(0,4);out.push(o);
+      o=Object.assign({},o,{tags:Object.assign({},o.tags||{})});o.also=null;o._core=null;
+      var hit=null;
+      for(var i=0;i<out.length;i++){if(sameShop(out[i],o)){hit=out[i];break}}
+      if(hit)mergePlaceInfo(hit,o);else out.push(o);
     })});
     return out;
   });
@@ -2700,9 +2733,16 @@ function placeKey(o){return 'near:'+o.id}
 function findPlace(key){var id=String(key||'').replace(/^near:/,'');for(var i=0;i<nearby.list.length;i++)if(nearby.list[i].id===id)return nearby.list[i];return null}
 /* 登録済みの店と同じ位置・同名のものは除く（一覧に二重に出さない） */
 function unregisteredPlaces(groups){
-  var have={};
-  groups.forEach(function(g){var c=coordsOf(g);if(c)have['p:'+c.lat.toFixed(4)+','+c.lng.toFixed(4)]=1;have['n:'+normKana(g.store)]=1});
-  return nearby.list.filter(function(o){return !have['p:'+o.lat.toFixed(4)+','+o.lng.toFixed(4)]&&!have['n:'+normKana(o.name)]});
+  var regs=groups.map(function(g){var c=coordsOf(g);return{name:g.store,lat:c?c.lat:null,lng:c?c.lng:null,_core:nameCore(g.store)}});
+  return nearby.list.filter(function(o){
+    var oc=o._core||(o._core=nameCore(o.name));
+    for(var i=0;i<regs.length;i++){
+      var r=regs[i];
+      if(r.lat!=null){if(sameShop(r,o))return false}
+      else if(r._core&&oc&&(r._core===oc||(r._core.length>=3&&oc.length>=3&&(r._core.indexOf(oc)>=0||oc.indexOf(r._core)>=0))))return false;
+    }
+    return true;
+  });
 }
 function placeMatches(o,q){
   if(!q)return true;
@@ -2794,6 +2834,8 @@ function renderPlaceDetail(box,o){
   var cta=el('button','cta','この店を採点する');cta.type='button';cta.addEventListener('click',function(){rateOsmPlace(o)});cta.style.marginTop='14px';box.appendChild(cta);
   var lk=el('div','d-links'),su=srcURL(o);
   if(su){var hl=el('a',null,srcLabel(o)+'で見る');hl.href=su;hl.target='_blank';hl.rel='noopener';lk.appendChild(hl)}
+  /* 別の提供元にも同じ店があれば、そちらのリンクも出す */
+  (o.also||[]).forEach(function(d){var du=srcURL(d);if(du&&srcLabel(d)&&srcLabel(d)!==srcLabel(o)){var al=el('a',null,srcLabel(d)+'で見る');al.href=du;al.target='_blank';al.rel='noopener';lk.appendChild(al)}});
   if(yj&&t.url){var yl=el('a',null,'公式サイト');yl.href=t.url;yl.target='_blank';yl.rel='noopener';lk.appendChild(yl)}
   var gm=el('a',null,'Googleマップ');gm.href=gmapAt(o.lat,o.lng,o.name);gm.target='_blank';gm.rel='noopener';lk.appendChild(gm);
   var rt=el('a',null,'経路');rt.href=routeURL(o.lat,o.lng);rt.target='_blank';rt.rel='noopener';lk.appendChild(rt);
@@ -2880,10 +2922,10 @@ function renderLeafletMap(host,groups,focusKey,h){
   function drawNearby(){
     host._osm.clearLayers();
     if(nearby.error){host._note.textContent='';return}
-    var have={};(host._pts||[]).forEach(function(p){have[p.lat.toFixed(4)+','+p.lng.toFixed(4)]=1});
+    var regs=(host._pts||[]).map(function(p){return{name:p.name,lat:p.lat,lng:p.lng}});
     var n=0,nhp=0,nyj=0;
     nearby.list.forEach(function(o){
-      if(have[o.lat.toFixed(4)+','+o.lng.toFixed(4)])return;
+      for(var i=0;i<regs.length;i++)if(sameShop(regs[i],o))return;
       n++;if(o.src==='hp')nhp++;else if(o.src==='yj')nyj++;
       L.marker([o.lat,o.lng],{icon:osmIcon(o.src),zIndexOffset:-100}).addTo(host._osm).bindPopup(function(){return lpopupOsm(o)},{maxWidth:260});
     });
