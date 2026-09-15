@@ -393,7 +393,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-8f9ca0c"></script>
+<script src="firebase-config.js?v=after-d889a63"></script>
 <script>
 (function(){
 'use strict';
@@ -455,7 +455,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-14 04:28 UTC (after-8f9ca0c)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-15 23:11 UTC (after-d889a63)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2518,7 +2518,8 @@ function lpopupOsm(o){
   var row=el('div','lpop-row');
   var dt=el('button','loc-btn','詳しく');dt.type='button';dt.addEventListener('click',function(){detailKey=placeKey(o);showView('detail')});row.appendChild(dt);
   var rate=el('button','loc-btn','採点する');rate.type='button';rate.addEventListener('click',function(){rateOsmPlace(o)});row.appendChild(rate);
-  if(hp&&t.url){var hl=el('a','loc-btn','ホットペッパー');hl.href=t.url;hl.target='_blank';hl.rel='noopener';row.appendChild(hl)}
+  var su=srcURL(o);
+  if(su){var hl=el('a','loc-btn',srcLabel(o));hl.href=su;hl.target='_blank';hl.rel='noopener';row.appendChild(hl)}
   var gm=el('a','loc-btn','Googleマップ');gm.href=gmapAt(o.lat,o.lng,o.name);gm.target='_blank';gm.rel='noopener';row.appendChild(gm);
   var rt=el('a','loc-btn','経路');rt.href=routeURL(o.lat,o.lng);rt.target='_blank';rt.rel='noopener';row.appendChild(rt);
   d.appendChild(row);
@@ -2537,7 +2538,9 @@ function rateOsmPlace(o){
     if(t.station)state.station=t.station+'駅';
     var hint=(t.genre||'');
     GENRES.forEach(function(gn){if(!state.genre&&hint&&(hint.indexOf(gn.split('・')[0])>=0||gn.indexOf(hint.slice(0,2))>=0))state.genre=gn});
-    if(t.url&&!state.links.length)state.links.push({label:o.src==='hp'?'ホットペッパー':'Yahoo!ロコ',url:t.url});
+    var su=srcURL(o);
+    if(su&&!state.links.length)state.links.push({label:srcLabel(o),url:su});
+    if(o.src==='yj'&&t.url)state.links.push({label:'公式サイト',url:t.url});
   }else{
     var cj=cuisineJa(t);
     GENRES.forEach(function(gn){if(!state.genre&&cj&&gn.indexOf(cj.split('・')[0])>=0)state.genre=gn});
@@ -2684,6 +2687,14 @@ function mapRadius(m){
 }
 function placeGenre(o){return(o.src==='hp'||o.src==='yj')?(o.tags.genre||''):cuisineJa(o.tags||{})}
 function srcName(o){return o.src==='hp'?'ホットペッパー':o.src==='yj'?'Yahoo! JAPAN':'OpenStreetMap'}
+/* 提供元の店舗ページ。ホットペッパーは API の URL、Yahoo! は店名＋住所で Yahoo! マップを検索 */
+function srcURL(o){
+  var t=o.tags||{};
+  if(o.src==='hp')return t.url||'';
+  if(o.src==='yj')return 'https://map.yahoo.co.jp/search?q='+encodeURIComponent(o.name+' '+(t.addr||''))+'&lat='+o.lat+'&lon='+o.lng;
+  return '';
+}
+function srcLabel(o){return o.src==='hp'?'ホットペッパー':o.src==='yj'?'Yahoo!':''}
 function isRich(o){return o.src==='hp'||o.src==='yj'}
 function placeKey(o){return 'near:'+o.id}
 function findPlace(key){var id=String(key||'').replace(/^near:/,'');for(var i=0;i<nearby.list.length;i++)if(nearby.list[i].id===id)return nearby.list[i];return null}
@@ -2781,9 +2792,9 @@ function renderPlaceDetail(box,o){
   var addr=t.addr||t['addr:full']||'';if(addr)box.appendChild(el('p','meta',addr));
   if(t.access)box.appendChild(el('p','meta',t.access));
   var cta=el('button','cta','この店を採点する');cta.type='button';cta.addEventListener('click',function(){rateOsmPlace(o)});cta.style.marginTop='14px';box.appendChild(cta);
-  var lk=el('div','d-links');
-  if(hp&&t.url){var hl=el('a',null,'ホットペッパーで見る');hl.href=t.url;hl.target='_blank';hl.rel='noopener';lk.appendChild(hl)}
-  if(yj&&t.url){var yl=el('a',null,'Yahoo!で見る');yl.href=t.url;yl.target='_blank';yl.rel='noopener';lk.appendChild(yl)}
+  var lk=el('div','d-links'),su=srcURL(o);
+  if(su){var hl=el('a',null,srcLabel(o)+'で見る');hl.href=su;hl.target='_blank';hl.rel='noopener';lk.appendChild(hl)}
+  if(yj&&t.url){var yl=el('a',null,'公式サイト');yl.href=t.url;yl.target='_blank';yl.rel='noopener';lk.appendChild(yl)}
   var gm=el('a',null,'Googleマップ');gm.href=gmapAt(o.lat,o.lng,o.name);gm.target='_blank';gm.rel='noopener';lk.appendChild(gm);
   var rt=el('a',null,'経路');rt.href=routeURL(o.lat,o.lng);rt.target='_blank';rt.rel='noopener';lk.appendChild(rt);
   if(t.tel){var tl=telLink(t.tel);tl.className='tel';lk.appendChild(tl)}
@@ -2803,6 +2814,7 @@ function renderPlaceDetail(box,o){
     if(t.open)rows.push(['営業時間',t.open]);
     if(t.tel)rows.push(['電話',t.tel]);
     if(t.catch_)rows.push(['紹介',t.catch_]);
+    if(t.url)rows.push(['サイト',t.url]);
   }else if(hp){
     if(t.open)rows.push(['営業時間',t.open]);
     if(t.close)rows.push(['定休日',t.close]);
