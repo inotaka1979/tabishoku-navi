@@ -399,7 +399,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-23716e6"></script>
+<script src="firebase-config.js?v=after-efe1e5d"></script>
 <script>
 (function(){
 'use strict';
@@ -461,7 +461,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-17 11:35 UTC (after-23716e6)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-17 12:43 UTC (after-efe1e5d)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -2622,14 +2622,19 @@ function fetchHotpepperNearby(lat,lng,radius,keyword){
   var base='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?'+qs;
   var proxy=(typeof window.HOTPEPPER_PROXY==='string'&&window.HOTPEPPER_PROXY)?window.HOTPEPPER_PROXY.replace(/\/+$/,''):'';
   /* 優先順: 中継 Worker（確実） → 直接 JSON（CORS） → JSONP */
+  var kwApplied=!keyword; /* 提供元にキーワードが渡ったか（中継が未対応なら手元で絞る） */
   function viaProxy(){
     if(!proxy)return Promise.reject(new Error('proxy未設定'));
-    return fetch(proxy+'/hotpepper?'+qs,{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json()});
+    return fetch(proxy+'/hotpepper?'+qs,{mode:'cors'}).then(function(r){
+      if(!r.ok)throw new Error('http '+r.status);
+      try{if(keyword&&r.headers.get('x-keyword')==='applied')kwApplied=true}catch(e){}
+      return r.json();
+    });
   }
   function viaFetch(){
-    return fetch(base+'&format=json',{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);return r.json()});
+    return fetch(base+'&format=json',{mode:'cors'}).then(function(r){if(!r.ok)throw new Error('http '+r.status);kwApplied=true;return r.json()});
   }
-  function viaJsonp(){return jsonp(base+'&format=jsonp',8000)}
+  function viaJsonp(){return jsonp(base+'&format=jsonp',8000).then(function(j){kwApplied=true;return j})}
   return viaProxy()['catch'](function(e0){
     return viaFetch()['catch'](function(e1){
       return viaJsonp()['catch'](function(e2){throw new Error('proxy:'+(e0&&e0.message||'?')+' / json:'+(e1&&e1.message||'?')+' / jsonp:'+(e2&&e2.message||'?'))});
@@ -2643,6 +2648,10 @@ function fetchHotpepperNearby(lat,lng,radius,keyword){
           url:(s.urls&&s.urls.pc)||'',photo:(s.photo&&s.photo.mobile&&s.photo.mobile.s)||'',photoL:(s.photo&&s.photo.pc&&s.photo.pc.l)||(s.photo&&s.photo.mobile&&s.photo.mobile.l)||'',
           addr:s.address||'',catch_:s['catch']||'',access:s.mobile_access||s.access||'',card:s.card||'',smoking:s.non_smoking||'',privateRoom:s.private_room||'',capacity:s.capacity||''}};
     }).filter(function(o){return o.lat&&o.lng&&o.name});
+    if(keyword&&!kwApplied){
+      var kq=normKana(keyword);
+      out=out.filter(function(o){var t=o.tags;return normKana([o.name,t.genre,t.genreCatch,t.catch_,t.station,t.addr].join(' ')).indexOf(kq)>=0});
+    }
     osmCache[key]=out;
     return out;
   });
