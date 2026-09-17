@@ -167,8 +167,10 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 .bar-text b{display:block;font-size:14px;font-weight:500}
 .bar-text small{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .save{flex:none;background:var(--ink);color:var(--paper);border:0;border-radius:8px;padding:11px 16px;font:500 15px var(--sans);cursor:pointer}
-.search{margin-top:12px}
-.search input{width:100%;border:1px solid var(--rule);border-radius:999px;background:var(--card);color:var(--ink);padding:10px 16px;font:400 15px var(--sans);-webkit-appearance:none;appearance:none}
+.search{margin-top:12px;display:flex;gap:8px;align-items:center}
+.search input{flex:1;min-width:0;width:100%;border:1px solid var(--rule);border-radius:999px;background:var(--card);color:var(--ink);padding:10px 16px;font:400 15px var(--sans);-webkit-appearance:none;appearance:none}
+.search .btn-sm{border-radius:999px;background:var(--ink);color:var(--paper);border-color:var(--ink);min-height:40px;padding:8px 16px}
+.search-hint{margin-top:6px}
 .search input:focus{outline:none;border-color:var(--indigo)}
 .loc-bar{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:14px}
 .loc-bar .cur{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
@@ -275,7 +277,8 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 
   <!-- 表：探す -->
   <main id="view-search">
-    <div class="search"><input id="q" type="search" placeholder="店名・料理・駅名で探す" autocomplete="off" aria-label="検索"></div>
+    <div class="search"><input id="q" type="search" placeholder="店名・料理・駅名で探す" autocomplete="off" aria-label="検索" enterkeyhint="search"><button type="button" class="btn-sm" id="q-go">検索</button></div>
+    <p class="hint search-hint" id="q-hint" hidden></p>
     <div class="loc-bar" id="loc-bar"></div>
     <div class="frow" id="quick-pref"></div>
     <div class="filters">
@@ -396,7 +399,7 @@ h2{font:700 19px var(--serif);margin:0 0 4px;padding-bottom:6px;border-bottom:2p
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="firebase-config.js?v=after-85adad5"></script>
+<script src="firebase-config.js?v=after-23716e6"></script>
 <script>
 (function(){
 'use strict';
@@ -458,7 +461,7 @@ var CHAINS=[
  {id:'ootoya',name:'大戸屋'},{id:'tenkaippin',name:'天下一品'}
 ];
 var KEY='atari:ratings',ME_KEY='atari:me';
-var APP_BUILD='2026-09-15 23:33 UTC (after-85adad5)'; /* 配信時にビルド日時とコミットに置き換わる */
+var APP_BUILD='2026-09-17 11:35 UTC (after-23716e6)'; /* 配信時にビルド日時とコミットに置き換わる */
 var TOTAL_ITEMS=ITEM_IDS.length;
 
 /* ============ 地域マスタ ============ */
@@ -1533,7 +1536,14 @@ function buildSearch(){
   var um=chip('未評価も表示');um.dataset.unrated='1';um.addEventListener('click',function(){search.unrated=!search.unrated;renderSearch()});$('#f-sort').appendChild(um);
   var mp=chip('地図');mp.dataset.map='1';mp.addEventListener('click',function(){search.map=!search.map;renderSearch()});$('#f-sort').appendChild(mp);
   var wt=chip('★ 行きたい');wt.dataset.want='1';wt.addEventListener('click',function(){search.want=!search.want;renderSearch()});$('#f-sort').insertBefore(wt,$('#f-sort').firstChild);
-  $('#q').addEventListener('input',function(e){search.q=e.target.value;renderSearch()});
+  $('#q').addEventListener('input',function(e){
+    search.q=e.target.value;
+    /* 検索語を消したら、提供元へのキーワード検索も解除して通常の周辺一覧に戻す */
+    if(!search.q.trim()&&nearby.keyword&&nearby.center)loadNearby(nearby.center.lat,nearby.center.lng,true,nearby.radius,'');
+    renderSearch();
+  });
+  $('#q').addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();runKeywordSearch()}});
+  $('#q-go').addEventListener('click',runKeywordSearch);
   $('#back').addEventListener('click',goBack);
   Array.prototype.forEach.call(document.querySelectorAll('.frow'),function(r){r.addEventListener('scroll',markOverflow,{passive:true})});
   window.addEventListener('resize',markOverflow);
@@ -1543,7 +1553,23 @@ function markOverflow(){
   Array.prototype.forEach.call(document.querySelectorAll('.frow'),function(r){r.classList.toggle('fade',r.scrollWidth-r.clientWidth-r.scrollLeft>4)});
 }
 function filtersActive(){return !!(search.q.trim()||search.genre||search.nogate||search.scored||search.want||search.loc.pref)}
-function clearFilters(){search.q='';$('#q').value='';search.genre=null;search.nogate=false;search.scored=false;search.want=false;search.loc={pref:null,area:null,station:null};renderSearch()}
+/* 検索欄の Enter / 「検索」ボタン: ホットペッパーと Yahoo! にキーワード付きで問い合わせ直す */
+function runKeywordSearch(){
+  var kw=search.q.trim();
+  try{$('#q').blur()}catch(e){}
+  var mb=$('#map-box'),m=mb&&mb._lmap;
+  var c=search.pos?{lat:search.pos.lat,lng:search.pos.lng}:(m?m.getCenter():(nearby.center||null));
+  var radius=m?Math.max(mapRadius(m),kw?1500:0):(nearby.radius||1000);
+  if(!c){
+    if(!kw){renderSearch();return}
+    locateMe(function(){loadNearby(search.pos.lat,search.pos.lng,true,Math.max(radius,1500),kw)});
+    return;
+  }
+  loadNearby(c.lat,c.lng,true,radius,kw).then(function(list){
+    if(kw)toast('「'+kw+'」で周辺 '+(radius>=1000?(radius/1000).toFixed(radius%1000?1:0)+'km':radius+'m')+' を検索: '+list.length+'軒',3000);
+  });
+}
+function clearFilters(){search.q='';$('#q').value='';search.genre=null;search.nogate=false;search.scored=false;search.want=false;search.loc={pref:null,area:null,station:null};if(nearby.keyword&&nearby.center)loadNearby(nearby.center.lat,nearby.center.lng,true,nearby.radius,'');renderSearch()}
 
 /* 行きたいリスト（この端末） */
 var WANT_KEY='atari:wants';
@@ -1839,6 +1865,10 @@ function renderSearch(){
   renderRecent(groups);
   saveSearchPrefs();
   markOverflow();
+  /* 検索語はあるが提供元にはまだ問い合わせていないとき、その旨を案内 */
+  var qh=$('#q-hint'),qraw=search.q.trim();
+  if(qraw&&normKana(nearby.keyword)!==q){qh.hidden=false;qh.textContent='手元の店を絞り込み中。Enter か「検索」で、ホットペッパー・Yahoo! に「'+qraw+'」で問い合わせます（メニューや紹介文も対象）。'}
+  else qh.hidden=true;
   if(!all.length&&!groups.length){
     var e=el('div','empty');
     if(booting){e.appendChild(el('p',null,'みんなの採点を読み込んでいます…'));box.appendChild(e);return}
@@ -2582,11 +2612,13 @@ function jsonp(url,timeoutMs){
     document.head.appendChild(s);
   });
 }
-function fetchHotpepperNearby(lat,lng,radius){
+function fetchHotpepperNearby(lat,lng,radius,keyword){
   var range=radius<=300?1:radius<=500?2:radius<=1000?3:radius<=2000?4:5;
-  var key='hp:'+lat.toFixed(3)+','+lng.toFixed(3)+','+range;
+  keyword=(keyword||'').trim();
+  var key='hp:'+lat.toFixed(3)+','+lng.toFixed(3)+','+range+','+keyword;
   if(osmCache[key])return Promise.resolve(osmCache[key]);
-  var qs='key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100';
+  /* keyword は店名・住所・駅名・ジャンルキャッチ・紹介文を対象に検索（スペース区切りで AND） */
+  var qs='key='+encodeURIComponent(window.HOTPEPPER_KEY)+'&lat='+lat+'&lng='+lng+'&range='+range+'&count=100'+(keyword?'&keyword='+encodeURIComponent(keyword):'');
   var base='https://webservice.recruit.co.jp/hotpepper/gourmet/v1/?'+qs;
   var proxy=(typeof window.HOTPEPPER_PROXY==='string'&&window.HOTPEPPER_PROXY)?window.HOTPEPPER_PROXY.replace(/\/+$/,''):'';
   /* 優先順: 中継 Worker（確実） → 直接 JSON（CORS） → JSONP */
@@ -2650,14 +2682,15 @@ function flatProps(o){
 }
 /* Yahoo! JAPAN ローカルサーチ API（window.YAHOO_APPID があるときだけ）。JSONP で直接取得できる */
 function hasYahoo(){return !!(window.YAHOO_APPID&&typeof window.YAHOO_APPID==='string')}
-function fetchYahooNearby(lat,lng,radius){
+function fetchYahooNearby(lat,lng,radius,keyword){
   var km=Math.max(0.3,Math.min(3,Math.round(radius/100)/10));
-  var key='yj:'+lat.toFixed(3)+','+lng.toFixed(3)+','+km;
+  keyword=(keyword||'').trim();
+  var key='yj:'+lat.toFixed(3)+','+lng.toFixed(3)+','+km+','+keyword;
   if(osmCache[key])return Promise.resolve(osmCache[key]);
   /* Client ID は通常末尾が「-」。設定値が違っていても、もう一方の形で 1 回だけ試す */
   var id=String(window.YAHOO_APPID).trim(),alt=/-$/.test(id)?id.slice(0,-1):id+'-';
   function call(appid){
-    var url='https://map.yahooapis.jp/search/local/V1/localSearch?appid='+encodeURIComponent(appid)+'&lat='+lat+'&lon='+lng+'&dist='+km+'&gc=01&results=100&sort=geo&output=json';
+    var url='https://map.yahooapis.jp/search/local/V1/localSearch?appid='+encodeURIComponent(appid)+'&lat='+lat+'&lon='+lng+'&dist='+km+'&gc=01&results=100&sort=geo&output=json'+(keyword?'&query='+encodeURIComponent(keyword):'');
     return jsonp(url,10000).then(function(j){if(j&&j.Error)throw new Error(j.Error.Message||'yahoo');return j});
   }
   var first=window._yjIdOk||id;
@@ -2717,10 +2750,13 @@ function mergePlaceInfo(keep,dup){
   (keep.also||(keep.also=[])).push(dup);
 }
 /* 周辺の店 = ホットペッパー ∪ Yahoo! ∪ OpenStreetMap。同じ店は情報の多い提供元（先に来た方）に 1 件へまとめる */
-function fetchNearbyPlaces(lat,lng,radius){
-  var jobs=[fetchOsmNearby(lat,lng,radius)['catch'](function(){return[]})];
-  if(hasYahoo())jobs.unshift(fetchYahooNearby(lat,lng,radius)['catch'](function(e){toast('Yahoo! の取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
-  if(hasHotpepper())jobs.unshift(fetchHotpepperNearby(lat,lng,radius)['catch'](function(e){toast('ホットペッパーの取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
+function fetchNearbyPlaces(lat,lng,radius,keyword){
+  keyword=keyword||'';
+  var kq=normKana(keyword);
+  /* OpenStreetMap はキーワード検索を持たないので、取得後に店名・ジャンルで絞る */
+  var jobs=[fetchOsmNearby(lat,lng,radius).then(function(list){return kq?list.filter(function(o){return normKana(o.name+' '+cuisineJa(o.tags||{})).indexOf(kq)>=0}):list})['catch'](function(){return[]})];
+  if(hasYahoo())jobs.unshift(fetchYahooNearby(lat,lng,radius,keyword)['catch'](function(e){toast('Yahoo! の取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
+  if(hasHotpepper())jobs.unshift(fetchHotpepperNearby(lat,lng,radius,keyword)['catch'](function(e){toast('ホットペッパーの取得に失敗しました（'+(e&&e.message||'')+'）',3600);return[]}));
   return Promise.all(jobs).then(function(lists){
     var out=[];
     lists.forEach(function(list){list.forEach(function(o){
@@ -2733,18 +2769,19 @@ function fetchNearbyPlaces(lat,lng,radius){
   });
 }
 /* ============ 周辺の店（未評価）を一覧にも出す ============ */
-var nearby={key:'',center:null,radius:1000,list:[],loading:false,error:''};
+var nearby={key:'',center:null,radius:1000,keyword:'',list:[],loading:false,error:''};
 function distM(a,b){var dy=(a.lat-b.lat)*110574,dx=(a.lng-b.lng)*111320*Math.cos(b.lat*Math.PI/180);return Math.sqrt(dx*dx+dy*dy)}
 function rangeCode(r){return r<=300?1:r<=500?2:r<=1000?3:r<=2000?4:5}
-/* 中心 (lat,lng) と半径で周辺の店を取得。前回の中心から半径の 4 割以内で同じ範囲なら取り直さない */
-function loadNearby(lat,lng,force,radius){
+/* 中心 (lat,lng) と半径（とキーワード）で周辺の店を取得。前回の中心から半径の 4 割以内で同じ範囲・同じ語なら取り直さない */
+function loadNearby(lat,lng,force,radius,keyword){
   radius=Math.max(300,Math.min(3000,radius||1000));
+  keyword=(keyword==null?nearby.keyword:keyword)||'';
   var c={lat:lat,lng:lng};
-  var same=nearby.center&&rangeCode(nearby.radius)===rangeCode(radius)&&distM(c,nearby.center)<radius*0.4;
+  var same=nearby.center&&rangeCode(nearby.radius)===rangeCode(radius)&&nearby.keyword===keyword&&distM(c,nearby.center)<radius*0.4;
   if(!force&&(same||nearby.loading))return Promise.resolve(nearby.list);
-  nearby.loading=true;nearby.error='';nearby.center=c;nearby.radius=radius;nearby.key=lat.toFixed(3)+','+lng.toFixed(3)+','+rangeCode(radius);nearby.expanded=false;
+  nearby.loading=true;nearby.error='';nearby.center=c;nearby.radius=radius;nearby.keyword=keyword;nearby.key=lat.toFixed(3)+','+lng.toFixed(3)+','+rangeCode(radius)+','+keyword;nearby.expanded=false;
   if(currentView()==='search')renderSearch();
-  return fetchNearbyPlaces(lat,lng,radius).then(function(list){
+  return fetchNearbyPlaces(lat,lng,radius,keyword).then(function(list){
     nearby.list=list;nearby.loading=false;
     if(currentView()==='search')renderSearch();
     return list;
@@ -2827,8 +2864,8 @@ function placeCard(o){
 function renderNearbySection(box,groups,q){
   var sec=el('section','near-sec');
   var head=el('div','near-head');
-  var here=nearbyIsHere();
-  head.appendChild(el('h3',null,here?'周辺の店（未評価）':'地図の範囲の店（未評価）'));
+  var here=nearbyIsHere(),kw=nearby.keyword;
+  head.appendChild(el('h3',null,kw?'「'+kw+'」の店（未評価）':(here?'周辺の店（未評価）':'地図の範囲の店（未評価）')));
   var act=el('div','near-act');
   var mapEl=$('#map-box');
   if(!search.pos&&!nearby.center){
@@ -2846,13 +2883,15 @@ function renderNearbySection(box,groups,q){
   if(!search.pos&&!nearby.center){sec.appendChild(el('p','hint','現在地の周りにある未評価の店（ホットペッパー・OpenStreetMap）を一覧します。位置情報を許可するか、地図を動かして「地図の範囲で取得」を押してください。'));box.appendChild(sec);return}
   if(nearby.loading&&!nearby.list.length){sec.appendChild(el('p','hint','周辺の店を取得しています…'));box.appendChild(sec);return}
   if(nearby.error){sec.appendChild(el('p','warn',nearby.error+'。「再取得」を押してください'));box.appendChild(sec);return}
-  var list=unregisteredPlaces(groups).filter(function(o){return placeMatches(o,q)&&placeGenreMatch(o,search.genre)});
+  /* 提供元にキーワードで問い合わせ済みなら、店名に語が無くても結果なので手元の文字絞り込みはしない */
+  var apiMatched=!!(kw&&normKana(kw)===q);
+  var list=unregisteredPlaces(groups).filter(function(o){return(apiMatched||placeMatches(o,q))&&placeGenreMatch(o,search.genre)});
   list.forEach(function(o){o._d=here?placeDist(o):placeDistCenter(o)});
   list.sort(function(a,b){return(a._d==null?1e12:a._d)-(b._d==null?1e12:b._d)});
   var n=list.length,show=Math.min(n,nearby.expanded?n:12);
   var rk=nearby.radius>=1000?(nearby.radius/1000).toFixed(nearby.radius%1000?1:0)+'km':nearby.radius+'m';
   var srcs=[hasHotpepper()?'ホットペッパー':'',hasYahoo()?'Yahoo! JAPAN':'','OpenStreetMap'].filter(Boolean).join('・');
-  sec.appendChild(el('p','hint',(here?'現在地':'地図の中心')+'から '+rk+'・'+n+'軒（近い順、'+srcs+'）。地図を動かすとその範囲の店に切り替わります。'));
+  sec.appendChild(el('p','hint',(here?'現在地':'地図の中心')+'から '+rk+'・'+n+'軒（近い順、'+srcs+'）。'+(kw?'提供元に「'+kw+'」で問い合わせた結果です。検索語を消すと通常の周辺一覧に戻ります。':'地図を動かすとその範囲の店に切り替わります。')));
   if(!n){sec.appendChild(el('p','hint','条件に合う周辺の店はありません。'));box.appendChild(sec);return}
   for(var i=0;i<show;i++)sec.appendChild(placeCard(list[i]));
   if(show<n){var more=el('button','cta ghost','残り '+(n-show)+'軒を表示');more.type='button';more.addEventListener('click',function(){nearby.expanded=true;renderSearch()});sec.appendChild(more)}
@@ -2993,7 +3032,8 @@ function renderLeafletMap(host,groups,focusKey,h){
     if(nearby.loading){host._note.textContent='この範囲の店を取得中…';return}
     var parts=[];if(hasHotpepper())parts.push('オレンジ = ホットペッパー '+nhp+'軒');if(hasYahoo())parts.push('赤 = Yahoo! '+nyj+'軒');parts.push('黄 = OpenStreetMap '+(n-nhp-nyj)+'軒');
     var rk=nearby.radius>=1000?(nearby.radius/1000).toFixed(nearby.radius%1000?1:0)+'km':nearby.radius+'m';
-    host._note.textContent=n?(nearbyIsHere()?'現在地':'地図の中心')+'から '+rk+' の飲食店 '+n+'軒（'+parts.join('、')+'。青 = 登録済みの店）':'この範囲には登録された飲食店が見つかりません';
+    var kwt=nearby.keyword?'「'+nearby.keyword+'」の':'';
+    host._note.textContent=n?(nearbyIsHere()?'現在地':'地図の中心')+'から '+rk+' の'+kwt+'飲食店 '+n+'軒（'+parts.join('、')+'。青 = 登録済みの店）':'この範囲には'+kwt+'飲食店が見つかりません';
     if(n){host._note.appendChild(document.createTextNode('　'));var cl=creditLine();while(cl.firstChild)host._note.appendChild(cl.firstChild)}
   }
   host._layer.clearLayers();host._pts=pts;
